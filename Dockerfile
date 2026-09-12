@@ -1,20 +1,37 @@
-# Python 3.14 verificado: todas las dependencias del servicio tienen wheel, incluida
-# praat-parselmouth. Coincide con el entorno de desarrollo, asi que no hay sorpresas
-# entre local y produccion.
-FROM python:3.14-slim
+# Python 3.14 verificado: todas las dependencias del servicio tienen wheel en 3.14 menos
+# webrtcvad-wheels, que solo publica hasta cp313 y hay que compilar desde el sdist. Por eso
+# el build es en dos etapas: gcc vive en el builder y no llega a la imagen final, y asi el
+# contenedor mantiene la misma version de Python que el entorno de desarrollo.
 
-# Las wheels traen sus propias librerias nativas (libgomp en ctranslate2, libsndfile en
-# soundfile), asi que la imagen no necesita ningun paquete de apt.
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    HF_HOME=/models
+FROM python:3.14-slim AS builder
 
-WORKDIR /srv
+# Lo unico que hay que compilar es webrtcvad. El resto son wheels.
+# libc6-dev hace falta explicito: con --no-install-recommends, gcc no trae las cabeceras.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
 # --no-compile ahorra ~120 MB de bytecode a cambio de ~0.4 s de arranque (medido).
 RUN pip install --no-cache-dir --no-compile -r requirements.txt
+
+
+FROM python:3.14-slim
+
+# La imagen final no instala ningun paquete de apt: las wheels traen sus librerias nativas
+# (libgomp dentro de ctranslate2, libsndfile dentro de soundfile) y webrtcvad ya viene
+# compilado en el venv del builder.
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    HF_HOME=/models
+
+WORKDIR /srv
 
 COPY app/ app/
 COPY static/ static/

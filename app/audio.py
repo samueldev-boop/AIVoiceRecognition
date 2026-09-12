@@ -39,6 +39,14 @@ def decodificar(audio_b64: str) -> tuple[np.ndarray, int]:
     return x, sr
 
 
+def leer_wav(ruta: str) -> tuple[np.ndarray, int]:
+    """Lee un WAV del disco. Misma salida que decodificar(), para reusar validar()."""
+    try:
+        return sf.read(ruta, dtype="int16", always_2d=True)
+    except Exception as e:
+        raise AudioInvalido(f"no puedo leer {ruta}: {e}") from e
+
+
 def validar(x: np.ndarray, sr: int) -> float:
     """Comprueba el formato y devuelve la duracion en segundos.
 

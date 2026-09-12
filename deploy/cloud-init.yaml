@@ -1,0 +1,46 @@
+#cloud-config
+# Script de arranque para la instancia de Vultr.
+# Se pega en el campo "Startup Script" (tipo Boot) o en User-Data al desplegar.
+# Prepara el host y deja el repositorio listo; el primer despliegue lo hace una persona
+# a proposito, porque hace falta crear el .env.
+
+package_update: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - git
+
+users:
+  - name: despliegue
+    groups: [docker, sudo]
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+      # Pegar aqui las claves publicas del equipo, o dejarlo vacio y usar las
+      # SSH Keys que Vultr inyecta en root al desplegar.
+      []
+
+write_files:
+  - path: /etc/sysctl.d/99-somaxconn.conf
+    content: |
+      net.core.somaxconn = 1024
+
+runcmd:
+  - systemctl enable --now docker
+  - sysctl --system
+  - git clone https://github.com/samueldev-boop/AIVoiceRecognition.git /opt/servicio
+  - chown -R despliegue:despliegue /opt/servicio
+  - |
+    cat > /etc/motd <<'TXT'
+
+    AIVoiceRecognition — host preparado.
+
+    Siguiente paso:
+      cd /opt/servicio
+      git checkout stage
+      cp .env.example .env     # y rellenar lo que haga falta
+      docker compose up -d --build
+
+    Comprobar:  curl -s localhost/health
+
+    TXT

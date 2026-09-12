@@ -1,0 +1,37 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Debe coincidir con los vCPU de la instancia. Dejarlo en automatico provoca
+      # sobresuscripcion de hilos y latencia peor.
+      CPU_THREADS: "4"
+      OMP_NUM_THREADS: "4"
+    volumes:
+      # Cache del modelo de ASR: se descarga una vez por host, no por contenedor.
+      - modelos:/models
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      # Sin DOMINIO escucha en HTTP por el puerto 80, que sirve para probar con la IP.
+      # Con un dominio o un hostname tipo <ip-con-guiones>.sslip.io emite TLS solo.
+      DOMINIO: ${DOMINIO:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  modelos:
+  caddy_data:
+  caddy_config:

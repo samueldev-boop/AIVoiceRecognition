@@ -1,0 +1,12 @@
+# Sin la variable DOMINIO escucha en HTTP por el puerto 80 (suficiente para probar con
+# la IP de la instancia). Con DOMINIO puesto, Caddy pide y renueva el certificado solo.
+{$DOMINIO::80} {
+	encode zstd gzip
+
+	# Un clip de 2 minutos en base64 ronda los 5 MB; 25 MB deja margen de sobra.
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy api:8000
+}

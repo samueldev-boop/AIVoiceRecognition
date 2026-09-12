@@ -1,0 +1,24 @@
+# Dependencias del servicio. Versiones verificadas instalando en Python 3.14.
+# Deliberadamente SIN torch: baja la imagen de ~2.5 GB a ~600 MB y acorta el arranque.
+# Lo que necesite torch se entrena aparte (Colab) y se exporta a ONNX.
+
+# --- API ---
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+
+# --- audio y senal ---
+numpy==2.5.3
+scipy==1.18.1
+soundfile==0.14.0
+praat-parselmouth==0.4.7
+
+# --- VAD (ver #3) ---
+onnxruntime==1.30.0
+
+# --- ASR (ver #6): CTranslate2, no arrastra torch ---
+faster-whisper==1.2.1
+
+# --- modelo (ver #5) ---
+scikit-learn==1.9.1
+joblib==1.6.0

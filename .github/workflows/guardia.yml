@@ -1,0 +1,25 @@
+name: guardia
+
+on:
+  pull_request:
+    # labeled/unlabeled estan a proposito: al anadir la etiqueta el check se repite
+    # y pasa a verde sin tener que empujar un commit vacio.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  configuracion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Secretos, dataset y configuracion critica
+        env:
+          BASE: ${{ github.base_ref }}
+          ETIQUETAS_JSON: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          git fetch --no-tags origin "$BASE"
+          etiquetas=$(printf '%s' "$ETIQUETAS_JSON" | jq -r 'join(",")')
+          echo "etiquetas del PR: ${etiquetas:-(ninguna)}"
+          bash .github/scripts/guardia.sh "origin/$BASE...HEAD" "$etiquetas"

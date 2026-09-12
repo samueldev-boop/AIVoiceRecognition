@@ -1,0 +1,25 @@
+.git
+.github
+.githooks
+.venv
+venv
+__pycache__
+*.pyc
+.env
+
+# dataset y derivados: nunca entran en el contexto de build
+audio/
+turns/
+manifest.csv
+DATASET.md
+*.zip
+analysis/
+docs/
+
+# no hacen falta en la imagen
+tests/
+scripts/
+deploy/
+README.md
+CONTRIBUTING.md
+requirements-dev.txt

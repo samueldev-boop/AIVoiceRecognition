@@ -1,0 +1,22 @@
+# Cualquier PR que toque estas rutas necesita revision del propietario.
+# Se aplica en las ramas protegidas con "require code owner reviews" activado.
+
+# Por defecto, nadie en concreto: la revision normal basta.
+
+# --- infraestructura y despliegue ---
+/Dockerfile                 @samueldev-boop
+/.dockerignore              @samueldev-boop
+/docker-compose.yml         @samueldev-boop
+/Caddyfile                  @samueldev-boop
+/deploy/                    @samueldev-boop
+
+# --- dependencias y herramientas ---
+/requirements.txt           @samueldev-boop
+/requirements-dev.txt       @samueldev-boop
+/pyproject.toml             @samueldev-boop
+
+# --- gobernanza: lo que hace cumplir las reglas ---
+/.github/                   @samueldev-boop
+/.githooks/                 @samueldev-boop
+/.gitignore                 @samueldev-boop
+/CONTRIBUTING.md            @samueldev-boop

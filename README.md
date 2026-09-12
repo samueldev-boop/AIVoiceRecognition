@@ -52,18 +52,21 @@ POST /detect
 | API | **FastAPI + uvicorn** | Async, validación con pydantic y OpenAPI gratis. Sirve también el frontend estático: un solo despliegue, sin CORS |
 | Frontend | **HTML + JS + Tailwind por CDN** | Sin Node y sin build. La evaluación es sobre `/detect`, no sobre la interfaz |
 | Audio / DSP | `numpy`, `scipy`, `soundfile`, `praat-parselmouth` | Praat es el patrón oro para prosodia; el resto cubre espectro y niveles |
-| VAD | **Silero VAD vía `onnxruntime`** | Tiene modo 8 kHz nativo: no hay que remuestrear. Milisegundos por minuto de audio |
+| Intervalos | `portion` | Álgebra de turnos (unión, solape, IoU) en 27 KB. `pyannote.core` haría lo mismo arrastrando pandas |
+| VAD | **webrtcvad** | Nativo a 8 kHz con tramas de 20 ms, que es exactamente la rejilla en la que caen los tiempos de `turns/*.json`. Medido contra Silero: IoU 0.84/0.94 frente a 0.62/0.88, y mejor rendimiento aguas abajo. Procesa el dataset a 5300× tiempo real |
 | ASR | **faster-whisper (CTranslate2, int8)** | Devuelve `avg_logprob` y probabilidad por palabra, que es la señal más fuerte medida hasta ahora. No arrastra torch |
 | Modelo | **scikit-learn** (regresión logística por capas + fusión calibrada) | Con 353 llamadas el cuello de botella no es la capacidad del modelo, es la robustez de las features |
 | Despliegue | **Vultr**, 1 VM 4 vCPU / 8 GB, Docker Compose + Caddy | Sin GPU: el servicio es libre de torch y cabe en el presupuesto de latencia |
 
-**El servicio no incluye torch a propósito.** La imagen construida pesa **1.02 GB** y arranca
+**El servicio no incluye torch a propósito.** La imagen construida pesa **1.04 GB** y arranca
 hasta responder `/health` en **2.5 s** (ambos medidos); meter torch la multiplicaría sin que el
 servicio use nada de él. Cualquier modelo que lo requiera se entrena aparte (Colab) y se
 exporta a ONNX, o se queda fuera.
 
-La imagen no instala ningún paquete de `apt`: las wheels traen sus librerías nativas
-(`libgomp` dentro de `ctranslate2`, `libsndfile` dentro de `soundfile`).
+El build es en dos etapas. La imagen final no instala ningún paquete de `apt` —las wheels
+traen sus librerías nativas (`libgomp` dentro de `ctranslate2`, `libsndfile` dentro de
+`soundfile`)— y el `gcc` que necesita compilar `webrtcvad` en Python 3.14 se queda en el
+builder.
 
 No se usa base de datos. Si hace falta auditar predicciones, es una línea JSONL en disco.
 
@@ -106,7 +109,8 @@ reglas que sólo pueden **bajar** la sospecha, nunca subirla.
 app/         servicio
   main.py      FastAPI: /health, /detect y los estáticos
   audio.py     decodifica base64 y valida el clip (etapa 0)
-  vad.py       actividad de voz por canal        -> #3
+  vad.py       actividad de voz por canal con webrtcvad
+  intervalos.py  union, solape e IoU de turnos
   features.py  extractor único con presupuesto   -> #4
   model.py     carga del artefacto y scoring     -> #5
   schemas.py   contrato de entrada y salida
@@ -120,9 +124,9 @@ analysis/    exploración: sondas de features y banco de estrés
 docs/        informe de exploración
 ```
 
-`vad.py`, `features.py` y `model.py` son la estructura con la firma ya fijada; cada uno
-lanza `NotImplementedError` apuntando a su issue. Mientras no haya modelo entrenado,
-`/detect` valida el clip y responde 503 con el motivo en lugar de adivinar.
+`features.py` y `model.py` son la estructura con la firma ya fijada; cada uno lanza
+`NotImplementedError` apuntando a su issue. Mientras no haya modelo entrenado, `/detect`
+valida el clip y responde 503 con el motivo en lugar de adivinar.
 
 `analysis/` es exploratorio y se conserva como registro de lo medido: `turns_probe` y
 `audio_probe` extraen features y miden su poder discriminativo, `baseline` y `ablation`

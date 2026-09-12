@@ -1,0 +1,34 @@
+#!/bin/sh
+# Inserta el prefijo <tipo>(#issue): leyendo el nombre de la rama.
+# Rama esperada: <tipo>/<issue>-<slug>   ->   prefijo: <tipo>(#<issue>):
+
+msg_file="$1"
+source="$2"
+
+[ "$source" = "merge" ] && exit 0
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
+case "$branch" in
+  main|stage) exit 0 ;;
+  */*) ;;
+  *) exit 0 ;;
+esac
+
+tipo=${branch%%/*}
+resto=${branch#*/}
+issue=${resto%%-*}
+
+case "$tipo" in
+  feat|fix|model|infra|docs|chore) ;;
+  *) exit 0 ;;
+esac
+case "$issue" in
+  ''|*[!0-9]*) exit 0 ;;
+esac
+
+grep -q "^$tipo(#$issue): " "$msg_file" && exit 0
+
+tmp=$(mktemp)
+printf '%s' "$tipo(#$issue): " > "$tmp"
+cat "$msg_file" >> "$tmp"
+mv "$tmp" "$msg_file"

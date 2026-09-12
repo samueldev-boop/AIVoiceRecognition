@@ -1,0 +1,36 @@
+name: convencion
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  nombres:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rama y titulo del PR siguen la convencion
+        env:
+          RAMA: ${{ github.head_ref }}
+          TITULO: ${{ github.event.pull_request.title }}
+          DESTINO: ${{ github.base_ref }}
+        run: |
+          tipos='feat|fix|model|infra|docs|chore'
+          fallo=0
+
+          if [ "$RAMA" = "stage" ] && [ "$DESTINO" = "main" ]; then
+            echo "PR de integracion stage -> main: no se comprueba el nombre de rama."
+          elif printf '%s' "$RAMA" | grep -qE "^($tipos)/[0-9]+-[a-z0-9-]+$"; then
+            echo "Rama correcta: $RAMA"
+          else
+            echo "::error::Rama '$RAMA' invalida. Formato: <tipo>/<issue>-<slug>, por ejemplo model/3-vad-silero"
+            fallo=1
+          fi
+
+          if printf '%s' "$TITULO" | grep -qE "^($tipos)\(#[0-9]+\): .{4,}"; then
+            echo "Titulo correcto."
+          else
+            echo "::error::Titulo invalido. Formato: <tipo>(#<issue>): mensaje"
+            fallo=1
+          fi
+
+          exit $fallo

@@ -1,0 +1,19 @@
+# --- dataset y derivados: no se publican (el reto prohibe redistribuirlo) ---
+audio/
+manifest.csv
+turns/
+DATASET.md
+*.zip
+
+# --- salidas generadas por analysis/ (se regeneran ejecutando los scripts) ---
+analysis/*.csv
+analysis/*.txt
+analysis/transcripts/
+
+# --- entorno y artefactos locales ---
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store

@@ -1,0 +1,959 @@
+<title>Huella del llamante</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@700;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#EFF1EE; --surface:#F8F9F7; --sunk:#E5E8E4;
+  --ink:#141A17; --ink-2:#4A544E; --muted:#7C857F;
+  --rule:#D3D8D2; --rule-strong:#B9C0B8;
+  --brass:#8A6412; --brass-soft:#F0E7D2;
+  --humano:#008E96; --sintetico:#B84639;
+  --humano-soft:#DCEBEC; --sintetico-soft:#F3E1DE;
+  --display:"Chivo","Helvetica Neue",Arial,sans-serif;
+  --body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#111512; --surface:#191E1A; --sunk:#0C100D;
+    --ink:#E7EAE5; --ink-2:#A9B2AB; --muted:#7E8880;
+    --rule:#2A312C; --rule-strong:#3C453E;
+    --brass:#C99A3C; --brass-soft:#2B2418;
+    --humano:#28A5AE; --sintetico:#D06A5C;
+    --humano-soft:#12282A; --sintetico-soft:#2C1A18;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#111512; --surface:#191E1A; --sunk:#0C100D;
+  --ink:#E7EAE5; --ink-2:#A9B2AB; --muted:#7E8880;
+  --rule:#2A312C; --rule-strong:#3C453E;
+  --brass:#C99A3C; --brass-soft:#2B2418;
+  --humano:#28A5AE; --sintetico:#D06A5C;
+  --humano-soft:#12282A; --sintetico-soft:#2C1A18;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--body); font-size:17px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:1040px; margin:0 auto; padding-inline:22px; padding-block:0 72px}
+h1,h2,h3,h4{font-family:var(--display); font-weight:900; text-wrap:balance; margin:0}
+h1{font-size:clamp(2.4rem,6vw,3.9rem); line-height:1.02; letter-spacing:-.022em}
+h2{font-size:clamp(1.5rem,3.2vw,2rem); line-height:1.12; letter-spacing:-.015em}
+h3{font-size:1.12rem; font-weight:700; letter-spacing:-.005em}
+h4{font-size:.96rem; font-weight:700}
+p{margin:0}
+a{color:var(--brass)}
+code,.mono{font-family:var(--mono); font-variant-ligatures:none}
+code{font-size:.87em; background:var(--sunk); padding:.1em .32em; border-radius:3px}
+.eyebrow{
+  font-family:var(--mono); font-size:.7rem; font-weight:600; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--muted);
+}
+.lede{font-size:1.2rem; color:var(--ink-2); max-width:62ch}
+.prose{max-width:68ch; display:flex; flex-direction:column; gap:1.05rem}
+.prose p{max-width:68ch}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- cabecera ---------- */
+header.hero{padding-block:64px 40px; border-bottom:1px solid var(--rule-strong)}
+.hero .kicker{display:flex; gap:.7rem; align-items:baseline; flex-wrap:wrap; margin-bottom:1.4rem}
+.hero h1{margin-bottom:1.1rem}
+.thesis{
+  font-family:var(--display); font-weight:700; font-size:clamp(1.05rem,2.4vw,1.3rem);
+  line-height:1.38; max-width:52ch; color:var(--ink);
+}
+.thesis em{font-style:normal; color:var(--sintetico)}
+
+/* ---------- tiles ---------- */
+.tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--rule);
+  border:1px solid var(--rule); margin-top:2.6rem}
+.tile{background:var(--surface); padding:18px 16px 16px; display:flex; flex-direction:column; gap:.3rem}
+.tile .v{font-family:var(--mono); font-weight:600; font-size:1.75rem; line-height:1;
+  font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+.tile .k{font-size:.84rem; color:var(--ink-2); line-height:1.35}
+.tile.alarm .v{color:var(--sintetico)}
+.tile.good .v{color:var(--humano)}
+
+/* ---------- secciones ---------- */
+section{padding-block:52px; border-bottom:1px solid var(--rule)}
+section:last-of-type{border-bottom:0}
+.sec-head{display:flex; gap:14px; align-items:baseline; margin-bottom:1.5rem; flex-wrap:wrap}
+.sec-head .tag{
+  font-family:var(--mono); font-size:.72rem; font-weight:600; color:var(--brass);
+  border:1px solid var(--brass); border-radius:2px; padding:.12rem .4rem; letter-spacing:.06em;
+  white-space:nowrap;
+}
+
+/* ---------- panel de instrumento ---------- */
+.panel{background:var(--surface); border:1px solid var(--rule); margin-top:1.8rem}
+.panel-head{padding:13px 16px; border-bottom:1px solid var(--rule); display:flex;
+  justify-content:space-between; gap:12px; align-items:baseline; flex-wrap:wrap}
+.panel-head h4{font-size:.94rem}
+.panel-body{padding:16px; overflow-x:auto}
+.panel-foot{padding:11px 16px; border-top:1px solid var(--rule); color:var(--muted);
+  font-size:.82rem; line-height:1.45}
+
+/* ---------- grafico de barras AUC ---------- */
+.auc{min-width:560px}
+.auc-row{display:grid; grid-template-columns:168px 1fr 116px; align-items:center;
+  gap:12px; padding:2.5px 0}
+.auc-name{font-family:var(--mono); font-size:.79rem; color:var(--ink); overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap}
+.auc-name .flag{color:var(--brass); font-weight:600}
+.track{position:relative; height:17px; background:var(--sunk); border-radius:2px}
+.track::before{content:""; position:absolute; left:50%; top:-3px; bottom:-3px; width:1px;
+  background:var(--rule-strong)}
+.fill{position:absolute; top:2px; bottom:2px; border-radius:1px}
+.fill.h{background:var(--humano); border-radius:4px 1px 1px 4px}
+.fill.s{background:var(--sintetico); border-radius:1px 4px 4px 1px}
+.auc-val{font-family:var(--mono); font-size:.78rem; font-variant-numeric:tabular-nums;
+  color:var(--ink-2); text-align:right}
+.auc-val b{color:var(--ink); font-weight:600}
+.auc-axis{display:grid; grid-template-columns:168px 1fr 116px; gap:12px; margin-top:8px}
+.axis-in{display:flex; justify-content:space-between; font-family:var(--mono);
+  font-size:.68rem; color:var(--muted)}
+.legend{display:flex; gap:16px; flex-wrap:wrap; font-size:.8rem; color:var(--ink-2);
+  font-family:var(--mono); align-items:center}
+.swatch{display:inline-block; width:22px; height:9px; border-radius:2px; vertical-align:middle;
+  margin-right:6px}
+
+/* ---------- tablas ---------- */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:.87rem}
+th,td{text-align:left; padding:8px 11px; border-bottom:1px solid var(--rule)}
+thead th{font-family:var(--mono); font-size:.71rem; text-transform:uppercase;
+  letter-spacing:.07em; color:var(--muted); font-weight:600; border-bottom:1px solid var(--rule-strong)}
+tbody tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums}
+td.f{font-family:var(--mono); font-size:.82rem}
+tr.hilite td{background:var(--sintetico-soft)}
+tr.ok td{background:var(--humano-soft)}
+.chip{font-family:var(--mono); font-size:.68rem; font-weight:600; padding:.1rem .38rem;
+  border-radius:2px; letter-spacing:.04em; white-space:nowrap; display:inline-block}
+.chip.frag{background:var(--brass-soft); color:var(--brass); border:1px solid var(--brass)}
+.chip.rob{background:var(--humano-soft); color:var(--humano); border:1px solid var(--humano)}
+
+/* ---------- capas ---------- */
+.layers{display:flex; flex-direction:column; gap:1px; background:var(--rule);
+  border:1px solid var(--rule); margin-top:1.8rem}
+.layer{background:var(--surface); padding:16px; display:grid;
+  grid-template-columns:54px 1fr 132px; gap:16px; align-items:start}
+.layer .id{font-family:var(--mono); font-weight:600; font-size:1.5rem; color:var(--rule-strong);
+  line-height:1; padding-top:2px}
+.layer h4{margin-bottom:.3rem}
+.layer p{font-size:.9rem; color:var(--ink-2); max-width:62ch}
+.layer .meta{font-family:var(--mono); font-size:.73rem; color:var(--muted); line-height:1.7}
+.layer .meta b{color:var(--ink); font-weight:500; display:block}
+.layer.veto{border-left:3px solid var(--brass)}
+
+/* ---------- transcripcion ---------- */
+.turns{font-family:var(--mono); font-size:.79rem; line-height:1.58; min-width:480px}
+.turn{display:grid; grid-template-columns:56px 66px 1fr; gap:10px; padding:1.5px 0}
+.turn .t{color:var(--muted); font-variant-numeric:tabular-nums; text-align:right}
+.turn .who{font-weight:600}
+.turn.caller .who{color:var(--sintetico)}
+.turn.callerh .who{color:var(--humano)}
+.turn.agent .who{color:var(--muted)}
+.turn.agent .tx{color:var(--ink-2)}
+.turn mark{background:var(--brass-soft); color:var(--brass); font-weight:600;
+  padding:0 2px; border-radius:2px}
+.two-col{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--rule)}
+.two-col > div{background:var(--surface); padding:14px}
+
+/* ---------- misc ---------- */
+ul.tight{margin:0; padding-left:1.15rem; display:flex; flex-direction:column; gap:.45rem}
+ul.tight li{max-width:66ch}
+ul.tight li::marker{color:var(--brass)}
+.callout{border-left:3px solid var(--brass); background:var(--surface); padding:14px 18px;
+  margin-top:1.6rem; max-width:70ch}
+.callout p{font-size:.95rem}
+.callout .eyebrow{display:block; margin-bottom:.4rem; color:var(--brass)}
+.tip{position:fixed; z-index:9; pointer-events:none; opacity:0; transition:opacity .1s;
+  background:var(--ink); color:var(--ground); font-family:var(--mono); font-size:.74rem;
+  line-height:1.5; padding:7px 9px; border-radius:3px; max-width:270px}
+.tip.on{opacity:1}
+svg{max-width:100%; height:auto; display:block}
+.svg-wrap{overflow-x:auto}
+footer{padding-block:36px; color:var(--muted); font-size:.83rem; font-family:var(--mono)}
+@media (max-width:760px){
+  body{font-size:16px}
+  .tiles{grid-template-columns:repeat(2,1fr)}
+  .layer{grid-template-columns:38px 1fr}
+  .layer .meta{grid-column:2}
+  .two-col{grid-template-columns:1fr}
+  .auc-row,.auc-axis{grid-template-columns:118px 1fr 96px; gap:8px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+:focus-visible{outline:2px solid var(--brass); outline-offset:2px}
+</style>
+
+<div class="page">
+
+<header class="hero">
+  <div class="kicker">
+    <span class="eyebrow">Altur Challenge · HackMTY 2026</span>
+    <span class="eyebrow" style="color:var(--brass)">informe de exploración · 353 llamadas</span>
+  </div>
+  <h1>Huella del llamante</h1>
+  <p class="thesis">Un modelo trivial ya acierta <em>el 100 %</em> del split de validación.
+  Eso no es una buena noticia: significa que el conjunto se puede resolver leyendo el
+  micrófono en lugar de a la persona. Este informe inventaria todas las señales
+  disponibles, marca cuáles son atajos y mide qué queda cuando se los quitas.</p>
+
+  <div class="tiles">
+    <div class="tile alarm">
+      <span class="v num">1.000</span>
+      <span class="k">AUC en val usando <b>solo</b> el piso de ruido del canal. Sin mirar una palabra ni un turno.</span>
+    </div>
+    <div class="tile good">
+      <span class="v num">85 / 0</span>
+      <span class="k">Humanos que pisan el saludo en los 2 primeros segundos, contra bots que lo hacen. De 150 y 203.</span>
+    </div>
+    <div class="tile alarm">
+      <span class="v num">58.8 %</span>
+      <span class="k">Bots que escapan al modelo de canal si añaden ruido de sala. 20 líneas de código.</span>
+    </div>
+    <div class="tile alarm">
+      <span class="v num">83.1 %</span>
+      <span class="k">Acierto usando únicamente el canal del <b>agente</b>, que el llamante no controla.</span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head">
+    <span class="tag">01</span>
+    <h2>El resultado que no hay que creerse</h2>
+  </div>
+  <div class="prose">
+    <p>Extraje 113 features de las 353 llamadas — 47 de los <code>turns/*.json</code> y 66 del
+    audio — y entrené una regresión logística con el split <code>train</code>. En
+    <code>val</code>, con hablantes disjuntos: <b>AUC 1.000, cero errores</b>.</p>
+    <p>El problema es lo que pasa al desmontarlo por grupos. Cada familia de señales, por
+    separado, resuelve val casi perfecto. Cuando cinco caminos independientes llegan todos
+    al 100 %, val ha dejado de medir: ya no puede distinguir una estrategia sólida de una
+    que memorizó el ruido de fondo del estudio donde grabaron a los voluntarios.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h4>Ablación por grupos — cada familia entrenada sola</h4>
+      <span class="eyebrow">regresión logística L2 · train 282 → val 71</span>
+    </div>
+    <div class="panel-body">
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>Familia de señales</th><th class="n">Features</th><th class="n">AUC val</th>
+          <th class="n">FP</th><th class="n">FN</th><th>Qué lee en realidad</th>
+        </tr></thead>
+        <tbody>
+          <tr class="hilite"><td class="f">silencio + ruido</td><td class="n">20</td><td class="n">1.0000</td><td class="n">0</td><td class="n">0</td><td>si hay una sala detrás del micrófono</td></tr>
+          <tr><td class="f">conducta (turnos)</td><td class="n">47</td><td class="n">0.9976</td><td class="n">2</td><td class="n">0</td><td>cómo se coordina con el agente</td></tr>
+          <tr class="hilite"><td class="f">codec + banda</td><td class="n">18</td><td class="n">0.9889</td><td class="n">9</td><td class="n">0</td><td>qué cadena de audio produjo el archivo</td></tr>
+          <tr><td class="f">prosodia (F0, envolvente)</td><td class="n">16</td><td class="n">0.9881</td><td class="n">7</td><td class="n">1</td><td>cómo suena la voz</td></tr>
+          <tr class="hilite"><td class="f">ganancia + niveles</td><td class="n">10</td><td class="n">0.9340</td><td class="n">14</td><td class="n">3</td><td>a qué volumen se grabó</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="panel-foot">Las filas marcadas describen el <b>equipo</b>, no al llamante.
+    Un bot con otro TTS, u otro proveedor de telefonía, las mueve enteras.</div>
+  </div>
+
+  <div class="callout">
+    <span class="eyebrow">La fuga más incómoda</span>
+    <p>Entrené un modelo con features que describen <b>solo el canal 1, el del agente</b>:
+    cuánto habla, cuántos turnos hace, cuánto dura su saludo. El llamante no controla nada
+    de eso. Resultado: <b class="num">AUC 0.913 y 83.1 % de acierto</b> en val. La mayor
+    parte tiene explicación legítima — el agente se queda callado esperando al bot, y le
+    cortan el saludo cuando un humano se le echa encima (correlación 0.427 entre
+    «el humano entra pronto» y «el saludo sale corto») — pero deja claro que el modelo
+    puede acertar sin haber escuchado nunca al sospechoso.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="tag">02 · A</span>
+    <h2>Metadatos: aquí no hay nada</h2>
+  </div>
+  <div class="prose">
+    <p>Primero lo que <em>no</em> sirve, para no perder horas. Revisé la cabecera RIFF de los
+    353 archivos byte a byte:</p>
+    <ul class="tight">
+      <li>Los 353 tienen <b>exactamente</b> el mismo <code>fmt&nbsp;</code>: PCM, 2 canales,
+      8000 Hz, 16 bits. Ni una excepción.</li>
+      <li>Solo existen los chunks <code>fmt&nbsp;</code> y <code>data</code>. No hay
+      <code>LIST</code>, <code>INFO</code>, <code>bext</code> ni tag de encoder: nada de
+      software, fecha, dispositivo ni hablante.</li>
+      <li>La duración tampoco discrimina: <span class="mono">AUC 0.469</span>
+      (149.7 s de media en humanos, 146.2 s en bots).</li>
+    </ul>
+    <p>El dataset fue re-encodeado de forma uniforme, y eso borró el metadata. La única
+    información fuera del audio es el <code>manifest.csv</code>, y en el set oculto no la
+    tendrás.</p>
+    <p><b>En producción sí habría metadata, y sería de primera:</b> cabeceras SIP
+    (<code>User-Agent</code> del softphone, dominio del <code>From</code>), codec negociado,
+    jitter y pérdida de paquetes del RTP, ANI/CLI y su reputación, hora de marcado,
+    tasa de llamadas por origen. Vale la pena mencionarlo en la presentación —
+    un detector real se apoyaría ahí antes que en la señal — pero ninguna de esas
+    columnas existe en este reto, así que no construyas nada que las necesite.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="tag">02 · B</span>
+    <h2>Conducta conversacional</h2>
+  </div>
+  <div class="prose">
+    <p>47 features derivadas solo de los <code>turns/*.json</code>: ni un sample de audio.
+    Es el bloque más robusto porque mide una <b>restricción arquitectónica</b> del atacante,
+    no su equipo: un bot necesita detectar que el otro terminó de hablar (endpointing) antes
+    de que su STT cierre, el LLM responda y el TTS arranque. Ese ciclo cuesta segundos y no
+    se puede negociar sin rediseñar el pipeline.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h4>Poder discriminativo por feature — canal 0, medido en train</h4>
+      <span class="legend">
+        <span><span class="swatch" style="background:var(--humano)"></span>apunta a humano</span>
+        <span><span class="swatch" style="background:var(--sintetico)"></span>apunta a bot</span>
+      </span>
+    </div>
+    <div class="panel-body">
+      <div class="auc" id="auc-turnos"></div>
+      <div class="auc-axis"><span></span>
+        <span class="axis-in"><span>0</span><span>0.25</span><span>0.5 · sin señal</span><span>0.75</span><span>1</span></span>
+        <span></span>
+      </div>
+    </div>
+    <div class="panel-foot">AUC de Mann-Whitney sobre las 282 llamadas de train. La barra sale
+    del centro: cuanto más lejos del 0.5, más separa. Pasa el cursor para ver las medias de
+    cada clase.</div>
+  </div>
+
+  <h3 style="margin-top:2.6rem">La señal más limpia del dataset entero</h3>
+  <div class="prose" style="margin-top:.8rem">
+    <p>El agente abre con un saludo de unos 8 segundos. Lo que hace el llamante durante ese
+    saludo parte el conjunto en dos:</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h4>¿Cuándo habla por primera vez el llamante?</h4>
+      <span class="legend">
+        <span><span class="swatch" style="background:var(--humano)"></span>humano (n=150)</span>
+        <span><span class="swatch" style="background:var(--sintetico)"></span>sintético (n=203)</span>
+      </span>
+    </div>
+    <div class="panel-body">
+      <div class="svg-wrap">
+      <svg viewBox="0 0 720 268" role="img" aria-label="Histograma del primer momento en que habla el llamante: 85 humanos hablan en los primeros 2 segundos y ningún bot lo hace; los bots se concentran entre 8 y 14 segundos.">
+        <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">
+          <text x="38" y="214" text-anchor="end">0</text>
+          <text x="38" y="151" text-anchor="end">30</text>
+          <text x="38" y="88" text-anchor="end">60</text>
+          <text x="38" y="25" text-anchor="end">90</text>
+        </g>
+        <g stroke="var(--rule)" stroke-width="1">
+          <line x1="46" y1="147.3" x2="700" y2="147.3"/>
+          <line x1="46" y1="84.7" x2="700" y2="84.7"/>
+          <line x1="46" y1="22" x2="700" y2="22"/>
+        </g>
+        <line x1="46" y1="210" x2="700" y2="210" stroke="var(--rule-strong)" stroke-width="1"/>
+        <g id="bars-onset"></g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)" text-anchor="middle" id="xlab-onset"></g>
+        <text x="373" y="262" font-family="IBM Plex Mono, monospace" font-size="10"
+              fill="var(--muted)" text-anchor="middle">segundos desde el inicio de la llamada</text>
+      </svg>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <b>85 de 150 humanos hablan antes del segundo 2; de 203 bots, ninguno.</b>
+      Solo 5 bots arrancan antes del segundo 4. Normalizado contra el final del saludo, la
+      latencia mediana a la primera respuesta es <b>−1.80 s en humanos</b> (se le echan
+      encima) y <b>+2.28 s en bots</b> (esperan el silencio y luego procesan).
+    </div>
+  </div>
+
+  <div class="prose" style="margin-top:1.8rem">
+    <p>Ojo con la versión ingenua de esta señal. <code>onset0</code> crudo da AUC 0.948, pero
+    es en parte un accidente: el saludo del agente no dura siempre lo mismo, y los humanos que
+    entran pronto lo acortan. La forma correcta de usarla es normalizada —
+    <b>latencia contra el final del turno del agente</b>, y <b>si hubo solape</b> — que mide el
+    comportamiento en sí y no la duración del saludo.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="tag">02 · C</span>
+    <h2>Acústica: potentísima y traicionera</h2>
+  </div>
+  <div class="prose">
+    <p>66 features del canal del llamante, separando habla y silencio con los turnos.
+    Aquí está la señal más fuerte del reto y también toda la trampa. Marqué cada feature
+    según lo que sobrevive a un cambio de equipo:</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h4>Features acústicas — las 14 de mayor separación</h4>
+      <span class="legend">
+        <span class="chip frag">FRÁGIL</span><span>depende del canal</span>
+        <span class="chip rob">ROBUSTA</span><span>describe la voz</span>
+      </span>
+    </div>
+    <div class="panel-body">
+      <div class="auc" id="auc-audio"></div>
+      <div class="auc-axis"><span></span>
+        <span class="axis-in"><span>0</span><span>0.25</span><span>0.5 · sin señal</span><span>0.75</span><span>1</span></span>
+        <span></span>
+      </div>
+    </div>
+    <div class="panel-foot">Medido en train (282 llamadas). Ocho de las diez primeras son
+    frágiles: describen el micrófono, el codec y la ganancia.</div>
+  </div>
+
+  <div class="prose" style="margin-top:2rem">
+    <h3>Las tres frágiles que lo resuelven casi solas</h3>
+    <ul class="tight">
+      <li><b>Energía por encima de 3.4 kHz</b> (<code>b_3k4_4k</code>): los humanos traen
+      <span class="num">0.0225</span> de energía relativa ahí; los bots,
+      <span class="num">0.0025</span> — nueve veces menos. El TTS sale a 22 o 24 kHz y se
+      remuestrea a 8 kHz con un filtro limpio, así que la banda superior queda vacía. Es
+      la firma del <em>remuestreo</em>, no de la síntesis.</li>
+      <li><b>Variabilidad espectral del silencio</b> (<code>sil_cen_std</code>): humanos
+      <span class="num">424</span>, bots <span class="num">197</span>. Una persona tiene una
+      habitación detrás: aire, tráfico, un ventilador. Un bot tiene silencio digital. En val
+      esta sola feature separa <b>perfecto</b>.</li>
+      <li><b>Nivel del habla</b> (<code>rms_speech_db</code>): bots a
+      <span class="num">−17.2 dBFS</span>, humanos a <span class="num">−22.2</span>, con menos
+      factor de cresta. Es normalización de salida del TTS.</li>
+    </ul>
+    <p>Ninguna de las tres dice nada sobre si hay una persona. Dicen «este archivo lo produjo
+    una cadena digital limpia». Sirven — probablemente el set oculto salga del mismo
+    pipeline — pero no pueden ser la columna vertebral, y las mediré por separado para saber
+    cuánto dependo de ellas.</p>
+
+    <h3 style="margin-top:1.4rem">Una sorpresa que conviene no maquillar</h3>
+    <p>La intuición habitual dice que la voz humana tiene más micro-variación de tono que un
+    TTS. <b>Aquí sale al revés</b>: el jitter de F0 mide
+    <span class="num">0.0213</span> en humanos y <span class="num">0.0259</span> en bots, y la
+    fracción de contornos «demasiado suaves» es <em>mayor</em> en humanos
+    (<span class="num">0.489</span> contra <span class="num">0.409</span>). Puede ser que el
+    TTS module la prosodia de forma exagerada, o que mi estimador de F0 por autocorrelación
+    se suavice sobre audio humano ruidoso a 8 kHz. En cualquier caso: la feature separa
+    (AUC 0.833), pero no en la dirección del cuento. Midan antes de razonar.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="tag">02 · D</span>
+    <h2>Transcripción: la capa que el atacante no puede limpiar</h2>
+  </div>
+  <div class="prose">
+    <p>Transcribí los dos canales por separado con faster-whisper <code>small</code>
+    (el dataset ya viene diarizado por construcción, así que no hace falta diarización).
+    Sale un bloque de señales de naturaleza distinta a todo lo anterior: no describen el
+    equipo ni el reloj, describen <b>lo que el llamante entiende y decide</b>. Son las
+    caras al calcular y las más difíciles de falsificar.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h4>Mismo guion, dos llamantes</h4>
+      <span class="eyebrow">extracto real · canal 0 resaltado</span>
+    </div>
+    <div class="panel-body">
+      <div class="turns">
+        <div class="turn agent"><span class="t">38.9</span><span class="who">agente</span><span class="tx">¿Me apoya con su número de referencia de cliente por favor?</span></div>
+        <div class="turn callerh"><span class="t">42.5</span><span class="who">HUMANO</span><span class="tx">Si, 33, 06, 92, 81, 81, vencer el 10 de septiembre pero yo quiero pagar hasta el</span></div>
+        <div class="turn agent"><span class="t">51.4</span><span class="who">agente</span><span class="tx">33, 06, 92, <mark>80</mark>, ¿así es?</span></div>
+        <div class="turn callerh"><span class="t">68.8</span><span class="who">HUMANO</span><span class="tx">es posible. <mark>Pense en 10, o sea, pense en 10.</mark> 33, 06, 92, 81. No.</span></div>
+      </div>
+      <div class="turns" style="margin-top:1.2rem; padding-top:1.2rem; border-top:1px solid var(--rule)">
+        <div class="turn agent"><span class="t">27.7</span><span class="who">agente</span><span class="tx">…me puede proporcionar su número de referencia de cliente, por favor.</span></div>
+        <div class="turn agent"><span class="t">31.3</span><span class="who">agente</span><span class="tx">Perfecto, déjame confirmarle 9 0 5 7 3 8 1 3 a 10.</span></div>
+        <div class="turn caller"><span class="t">34.4</span><span class="who">BOT</span><span class="tx">Si 9-0-5-7-<mark>guion</mark>-3-8-1-2, no la última parte es 8-1-2, solo quiero saber si sobre el crédito verde.</span></div>
+        <div class="turn caller"><span class="t">85.3</span><span class="who">BOT</span><span class="tx">9-0-5-7-<mark>guion</mark>-3-8-1-2, ajá.</span></div>
+      </div>
+    </div>
+    <div class="panel-foot">Los dos corrigen el error que el agente plantó a propósito, así
+    que «¿detecta el error?» no separa por sí solo. Lo que separa es <b>la forma</b>: el humano
+    titubea y se repite («o sea, pense en 10»); el bot recita la referencia dígito a dígito,
+    idéntica las dos veces, y <b>pronuncia el guion en voz alta</b> — está leyendo una cadena
+    formateada, no recordando un número.</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h4>Confianza del ASR: una meta-feature casi gratis</h4>
+      <span class="eyebrow">4 llamadas · preliminar</span>
+    </div>
+    <div class="panel-body">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Canal</th><th>Clase</th><th class="n">avg_logprob</th><th class="n">prob. por palabra</th></tr></thead>
+        <tbody>
+          <tr class="ok"><td class="f">llamante</td><td>humano</td><td class="n">−0.453 / −0.406</td><td class="n">0.813 / 0.801</td></tr>
+          <tr class="hilite"><td class="f">llamante</td><td>sintético</td><td class="n">−0.340 / −0.223</td><td class="n">0.862 / 0.896</td></tr>
+          <tr><td class="f">agente (control, TTS)</td><td>—</td><td class="n">−0.172 … −0.228</td><td class="n">0.906 … 0.925</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="panel-foot">Whisper transcribe al bot con la confianza con la que transcribe
+    al agente, que también es TTS. Al humano, bastante peor. La versión normalizada
+    — <code>logprob(canal 0) − logprob(canal 1)</code> — se autocalibra contra la dificultad
+    de cada grabación. <b>Cuatro llamadas no son una medición</b>; está corriendo sobre 80.</div>
+  </div>
+
+  <div class="prose" style="margin-top:2rem">
+    <h3>Inventario completo de la capa de texto</h3>
+    <p>De estas, las medidas son la confianza del ASR y los ejemplos de arriba; el resto
+    están diseñadas contra lo que ya se ve en los transcritos y quedan por validar a escala.
+    Ordenadas por lo que cuesta falsificarlas:</p>
+    <ul class="tight">
+      <li><b>Coherencia de estado del diálogo.</b> Uno de los bots se despide
+      («no, gracias, que tenga buena tarde») a los 77 s y sigue la llamada 38 s más. Un LLM
+      pierde el hilo de en qué punto del trámite va; una persona no se despide a media
+      gestión. Se mide con un juez LLM sobre el par pregunta/respuesta.</li>
+      <li><b>Respuesta a lo que no existe.</b> El agente pregunta por productos inventados.
+      Un humano duda o lo niega; un LLM complaciente tiende a seguirle la corriente. Es la
+      trampa que el reto trae de fábrica y hay que explotarla explícitamente.</li>
+      <li><b>Forma de la repetición.</b> Cuando el agente pide confirmar una referencia:
+      ¿repite idéntico y agrupado igual las dos veces (bot) o varía el agrupamiento y se
+      equivoca (humano)? Distancia de edición entre repeticiones del mismo dato.</li>
+      <li><b>Artefactos de lectura de texto.</b> «guion», «barra», «punto», símbolos leídos
+      literalmente, cifras con formato de máquina. Lista de disparadores, coste cero.</li>
+      <li><b>Disfluencias y reparaciones.</b> «eh», «este», «o sea», «digo», falsos arranques,
+      auto-correcciones. Tasa por cada 100 palabras.</li>
+      <li><b>Distribución de pausas entre palabras</b> (de los timestamps por palabra):
+      el humano tiene cola larga y pausas en mitad de frase; el TTS pausa en la puntuación.
+      Mediana y p90 de las pausas intra-turno.</li>
+      <li><b>Ritmo y su varianza</b> entre turnos: palabras por minuto y, más importante,
+      cuánto cambia de un turno a otro.</li>
+      <li><b>Volumen de información por turno.</b> El bot contesta tres cosas a la vez y se
+      adelanta a lo que no le preguntaron (dio su nombre antes de que lo pidieran); el humano
+      contesta una.</li>
+      <li><b>Léxico:</b> diversidad tipo/token, regionalismos mexicanos, muletillas,
+      registro de cortesía demasiado uniforme.</li>
+      <li><b>Reacción a la interrupción.</b> El agente interrumpe a propósito: ¿el llamante
+      se calla, reinicia la frase, o termina lo que estaba diciendo?</li>
+    </ul>
+    <p><b>Coste:</b> con la RTX 2050 de esta máquina, transcribir las 14.5 h del dataset con
+    <code>small</code> cabe en menos de una hora. En el endpoint, transcribir un clip de
+    2 minutos en CPU cuesta ~15 s solo el canal del llamante — demasiado para responder en
+    línea, perfecto como capa de confirmación asíncrona o si hay GPU.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="tag">03</span>
+    <h2>Pruebas de estrés: qué aguanta un ataque</h2>
+  </div>
+  <div class="prose">
+    <p>Como val ya no informa, construí el banco de pruebas que sí. Entreno con el
+    <code>train</code> limpio y evalúo un <code>val</code> atacado. Los tres ataques son
+    baratos y realistas — nada que un equipo rival no pueda hacer con ffmpeg:</p>
+    <ul class="tight">
+      <li><b>humano_limpio</b> — al humano se le quita lo que lo delata: pasa-bajos a
+      3.4 kHz, normalización de pico, silencio a cero digital. Simula a una persona con otro
+      teléfono y un gate agresivo de VoIP. <b>Lo que aparezca aquí son falsos positivos.</b></li>
+      <li><b>bot_evasivo</b> — al bot se le añade lo que le falta: ruido rosa de sala a
+      −56 dBFS y jitter de ganancia de ±3 dB por turno.</li>
+      <li><b>bot_ritmo</b> — ataque al tiempo, no al audio: entra 0.6 s después del saludo,
+      mete jitter de ±0.8 s en las latencias e inserta backchannels cortos encima del agente.</li>
+    </ul>
+    <p>Verifiqué que los ataques mueven de verdad las features antes de leer los resultados:
+    <code>b_3k4_4k</code> baja de 0.0119 a 0.000027 y <code>sil_cen_std</code> a cero exacto.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h4>Falsos positivos y falsos negativos bajo ataque</h4>
+      <span class="eyebrow">val = 37 humanos + 34 bots · umbral 0.5</span>
+    </div>
+    <div class="panel-body">
+      <div class="tbl-wrap"><table>
+        <thead><tr>
+          <th>Escenario</th><th>Modelo</th><th class="n">AUC</th>
+          <th class="n">Humanos marcados bot</th><th class="n">Bots colados</th><th class="n">FNR</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="f">limpio</td><td>completo (113)</td><td class="n">1.0000</td><td class="n">0</td><td class="n">0</td><td class="n">0.000</td></tr>
+          <tr><td class="f">limpio</td><td>solo atajos (51)</td><td class="n">1.0000</td><td class="n">0</td><td class="n">0</td><td class="n">0.000</td></tr>
+          <tr><td class="f">limpio</td><td>solo conducta (47)</td><td class="n">0.9976</td><td class="n">2</td><td class="n">0</td><td class="n">0.000</td></tr>
+          <tr><td class="f">humano_limpio</td><td>completo</td><td class="n">1.0000</td><td class="n">0</td><td class="n">0</td><td class="n">0.000</td></tr>
+          <tr><td class="f">humano_limpio</td><td>solo atajos</td><td class="n">1.0000</td><td class="n">0</td><td class="n">0</td><td class="n">0.000</td></tr>
+          <tr class="hilite"><td class="f">bot_evasivo</td><td>solo atajos</td><td class="n">0.9746</td><td class="n">0</td><td class="n"><b>20 de 34</b></td><td class="n">0.588</td></tr>
+          <tr class="ok"><td class="f">bot_evasivo</td><td>completo</td><td class="n">1.0000</td><td class="n">0</td><td class="n">0</td><td class="n">0.000</td></tr>
+          <tr class="hilite"><td class="f">bot_ritmo</td><td>solo conducta</td><td class="n">0.9547</td><td class="n">2</td><td class="n"><b>13 de 34</b></td><td class="n">0.382</td></tr>
+          <tr class="ok"><td class="f">bot_ritmo</td><td>completo</td><td class="n">1.0000</td><td class="n">0</td><td class="n">0</td><td class="n">0.000</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="panel-foot">El modelo de atajos se hunde con ruido de sala (58.8 % de bots
+    escapan). El de conducta se hunde con un reescrito de tiempos (38.2 %). El completo
+    aguanta los dos <b>porque los ataques son incompatibles entre sí</b>: limpiar el audio
+    no arregla el ritmo, y arreglar el ritmo no añade una habitación.</div>
+  </div>
+
+  <div class="callout">
+    <span class="eyebrow">La conclusión que manda el diseño</span>
+    <p>La redundancia no es lujo, es la defensa. Ninguna capa aislada sobrevive a un ataque
+    dirigido; el conjunto sí, porque obliga al atacante a resolver a la vez el canal, el
+    reloj y el contenido. Y el escenario <code>humano_limpio</code> no produjo <b>ni un</b>
+    falso positivo: fue la capa de conducta la que sostuvo a esos humanos cuando su audio
+    dejó de parecer humano.</p>
+  </div>
+
+  <h3 style="margin-top:2.6rem">¿Cuántos segundos hacen falta para decidir?</h3>
+  <div class="prose" style="margin-top:.8rem">
+    <p>Importa para el diseño del endpoint: cada capa madura a un ritmo distinto.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h4>AUC en val según la ventana de audio disponible</h4>
+      <span class="legend">
+        <span><span class="swatch" style="background:var(--sintetico)"></span>acústica</span>
+        <span><span class="swatch" style="background:var(--humano)"></span>conducta</span>
+      </span>
+    </div>
+    <div class="panel-body">
+      <div class="svg-wrap">
+      <svg viewBox="0 0 720 250" role="img" aria-label="La acústica llega a AUC 1.000 con 20 segundos de llamada; la conducta necesita 90 segundos para pasar de 0.998.">
+        <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)">
+          <text x="40" y="196" text-anchor="end">0.90</text>
+          <text x="40" y="116" text-anchor="end">0.95</text>
+          <text x="40" y="36" text-anchor="end">1.00</text>
+        </g>
+        <g stroke="var(--rule)" stroke-width="1">
+          <line x1="48" y1="112" x2="676" y2="112"/>
+          <line x1="48" y1="32" x2="676" y2="32"/>
+        </g>
+        <line x1="48" y1="192" x2="676" y2="192" stroke="var(--rule-strong)"/>
+        <g id="lines-window"></g>
+        <g font-family="IBM Plex Mono, monospace" font-size="10" fill="var(--muted)"
+           text-anchor="middle" id="xlab-window"></g>
+        <text x="362" y="244" font-family="IBM Plex Mono, monospace" font-size="10"
+              fill="var(--muted)" text-anchor="middle">segundos de llamada usados</text>
+      </svg>
+      </div>
+    </div>
+    <div class="panel-foot">Cada ventana evalúa solo las llamadas con habla en ambos canales
+    dentro de ella (10 s: 92 llamadas; 20 s: 313; 40 s en adelante: las 353), por eso la
+    curva de conducta no es monótona — a los 20 s entran llamadas marginales que a los 15 s
+    quedaban fuera. La lectura firme es la forma: <b>la acústica decide con ~20 s de
+    llamada; la conducta necesita ~90 s</b> para estabilizarse.</div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="tag">04</span>
+    <h2>Arquitectura por capas</h2>
+  </div>
+  <div class="prose">
+    <p>Las capas están numeradas porque se ejecutan en orden y cada una puede cortar el
+    proceso. Las dos marcadas con barra solo pueden <b>bajar</b> la sospecha, nunca subirla:
+    ahí vive la protección contra falsos positivos.</p>
+  </div>
+
+  <div class="layers">
+    <div class="layer">
+      <span class="id">0</span>
+      <div>
+        <h4>Validación de entrada</h4>
+        <p>Formato, 8 kHz, 2 canales, duración en rango, canales no idénticos (que nadie
+        cuele el mismo mono duplicado), y que el canal 0 tenga al menos ~1 s de habla. Si no
+        pasa, se responde <code>confidence</code> baja en lugar de adivinar.</p>
+      </div>
+      <span class="meta"><b>&lt;10 ms</b>rechaza o degrada</span>
+    </div>
+    <div class="layer">
+      <span class="id">1</span>
+      <div>
+        <h4>Canal y codec — el detector rápido</h4>
+        <p>Banda sobre 3.4 kHz, piso de ruido, ganancia, cresta. Decide con 20 s de audio y
+        AUC 1.000 en este dataset. Se usa <b>pero se registra aparte</b>, porque es la capa
+        que un rival rompe con ruido rosa.</p>
+      </div>
+      <span class="meta"><b>~20 s de audio</b>18 + 20 + 10 features</span>
+    </div>
+    <div class="layer">
+      <span class="id">2</span>
+      <div>
+        <h4>Voz y prosodia</h4>
+        <p>F0 y su micro-variación, envolvente, espectro de modulación (4–12 Hz),
+        periodicidad. Invariante a ganancia por construcción; sobrevive al pasa-bajos.
+        AUC 0.988 sola.</p>
+      </div>
+      <span class="meta"><b>~20 s de audio</b>16 features</span>
+    </div>
+    <div class="layer">
+      <span class="id">3</span>
+      <div>
+        <h4>Conducta conversacional</h4>
+        <p>Latencia normalizada al final del turno del agente, su coeficiente de variación,
+        solapes, barge-in, backchannels, micro-pausas. Mide la restricción del pipeline del
+        atacante, no su equipo. AUC 0.998 sola.</p>
+      </div>
+      <span class="meta"><b>~90 s de audio</b>47 features</span>
+    </div>
+    <div class="layer">
+      <span class="id">4</span>
+      <div>
+        <h4>Texto y semántica</h4>
+        <p>Confianza del ASR normalizada entre canales, disfluencias, pausas entre palabras,
+        artefactos de lectura, coherencia del estado del diálogo y respuesta a lo inexistente.
+        La única capa que no se puede limpiar con un filtro.</p>
+      </div>
+      <span class="meta"><b>~15 s de cómputo</b>asíncrona o con GPU</span>
+    </div>
+    <div class="layer">
+      <span class="id">5</span>
+      <div>
+        <h4>Fusión calibrada</h4>
+        <p>Un score por capa, calibrados con Platt o isotónica sobre val, y fusión que
+        exige <b>acuerdo de k de n</b>. Si las capas se contradicen, la confianza baja en
+        lugar de promediarse: la discrepancia es información, no ruido.</p>
+      </div>
+      <span class="meta"><b>&lt;1 ms</b>devuelve confidence</span>
+    </div>
+    <div class="layer veto">
+      <span class="id">6</span>
+      <div>
+        <h4>Vetos de humanidad <span class="chip rob">solo baja</span></h4>
+        <p>Reglas duras que únicamente pueden reducir la sospecha, sacadas de lo que en este
+        dataset <b>solo</b> hace un humano: hablar encima del saludo en los primeros 2 s
+        (85 de 150 humanos, 0 de 203 bots). Un veto nunca acusa; solo absuelve.</p>
+      </div>
+      <span class="meta"><b>&lt;1 ms</b>límite superior al score</span>
+    </div>
+    <div class="layer veto">
+      <span class="id">7</span>
+      <div>
+        <h4>Detección de fuera de distribución <span class="chip rob">solo baja</span></h4>
+        <p>Distancia de Mahalanobis de las features contra la nube de train. Un clip que cae
+        lejos de todo lo visto — otro codec, otro idioma, otra tarifa de muestreo — devuelve
+        <code>confidence</code> cerca de 0.5 con una nota, en vez de una respuesta
+        segura y equivocada.</p>
+      </div>
+      <span class="meta"><b>&lt;5 ms</b>abstención explícita</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="tag">05</span>
+    <h2>Plan contra falsos positivos</h2>
+  </div>
+  <div class="prose">
+    <p>Acusar a una persona real de ser un bot es el error caro: en un banco significa
+    bloquearle el trámite a un cliente legítimo. Lo que hay medido sobre eso:</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h4>Coste del umbral — modelo de conducta en val</h4>
+      <span class="eyebrow">37 humanos · 34 bots</span>
+    </div>
+    <div class="panel-body">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th class="n">Umbral</th><th class="n">Acierto</th><th class="n">Humanos acusados</th><th class="n">Bots colados</th><th>Lectura</th></tr></thead>
+        <tbody>
+          <tr><td class="n">0.30</td><td class="n">0.958</td><td class="n">3</td><td class="n">0</td><td>demasiado agresivo</td></tr>
+          <tr><td class="n">0.50</td><td class="n">0.972</td><td class="n">2</td><td class="n">0</td><td>por defecto</td></tr>
+          <tr class="ok"><td class="n">0.70</td><td class="n">0.986</td><td class="n">1</td><td class="n">0</td><td>mejor punto: FPR 0.027 sin perder un bot</td></tr>
+          <tr><td class="n">0.90</td><td class="n">0.930</td><td class="n">0</td><td class="n">5</td><td>cero acusaciones, se escapan 5</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="panel-foot">El umbral 0.5 no es sagrado. En este dataset, subirlo a 0.70
+    elimina la mitad de los falsos positivos <b>sin coste en recall</b>. Si el jurado premia
+    calibración, vale más un 0.70 con <code>confidence</code> honesta que un 0.5 agresivo.</div>
+  </div>
+
+  <div class="prose" style="margin-top:2rem">
+    <h3>El perfil del falso positivo, con nombre y apellido</h3>
+    <p>Miré qué humanos se acercan a la frontera. No son aleatorios: son un tipo concreto de
+    persona. Comparados con la media humana, los que puntúan alto <b>no pisan al agente</b>
+    (0–5 barge-ins contra 8 de media), <b>esperan el silencio</b>
+    (<code>onset0</code> ≈ 9.3 s contra 3.8) y <b>responden despacio</b>
+    (<code>lat_cv</code> 0.70–0.96, tirando a la regularidad de un bot). Es el hablante
+    educado, mayor o con mala línea: el que espera su turno.</p>
+    <p>Consecuencias directas de diseño:</p>
+    <ul class="tight">
+      <li><b>Nunca decidir con una sola feature casi perfecta.</b> Exigir acuerdo de k de n
+      entre capas; una capa sola que grita «bot» con las demás calladas es sospechosa del
+      modelo, no del llamante.</li>
+      <li><b>Sobremuestrear a ese perfil</b> en entrenamiento, y aumentar los humanos con
+      pasa-bajos, normalización y gate — exactamente el ataque <code>humano_limpio</code> —
+      para que el modelo no pueda usar el canal como atajo.</li>
+      <li><b>Aleatorizar ganancia, banda y ruido</b> en cada época. Si el modelo no puede
+      confiar en el canal, aprende la voz y el ritmo.</li>
+      <li><b>Abstenerse es una respuesta válida.</b> Con <code>confidence</code> en la
+      métrica, devolver 0.55 en un caso ambiguo cuesta menos que un 0.95 equivocado.</li>
+      <li><b>Puerta en CI:</b> ningún modelo entra si su AUC se cae cuando se le quitan los
+      grupos frágiles. El banco de estrés corre en cada cambio, no una vez al final.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <span class="tag">06</span>
+    <h2>Lo que todavía no está medido</h2>
+  </div>
+  <div class="prose">
+    <p>Para que nadie construya sobre algo que no verifiqué:</p>
+    <ul class="tight">
+      <li>La confianza del ASR está medida en <b>4 llamadas</b>. Está corriendo sobre 80;
+      hasta que termine es una hipótesis, no un resultado.</li>
+      <li>Todas las features de texto por debajo de la confianza del ASR están
+      <b>diseñadas, no medidas</b>. Salen de leer transcritos reales, pero ninguna tiene AUC.</li>
+      <li>El modelo es una regresión logística L2 sin ajuste de hiperparámetros. Es un
+      baseline deliberado: con val saturado, un modelo más potente solo memorizaría mejor los
+      atajos. Gradient boosting sobre el set robusto es el siguiente paso, evaluado en el
+      banco de estrés y no en val.</li>
+      <li><code>humano_limpio</code> es un filtro, no un teléfono distinto. No simula un
+      micrófono de manos libres, una calle ruidosa ni un códec GSM real. El riesgo real de
+      falso positivo sigue sin acotar.</li>
+      <li>Los ataques son los que se me ocurrieron a mí. Un rival con más imaginación
+      — clonar el ruido de fondo de una llamada humana real, o hacer que el bot interrumpa
+      con TTS especulativo antes de tener la respuesta — rompería cosas que aquí aguantan.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  353 llamadas · 113 features medidas · 14.5 h de audio · regresión logística L2, train 282 → val 71<br>
+  Scripts reproducibles en <code>analysis/</code>: turns_probe · audio_probe · baseline · ablation · stress_test · transcribe · asr_confidence
+</footer>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+// ---- features de conducta: [nombre, AUC(train), media humano, media bot, nota]
+const TURNOS = [
+  ["onset0",            0.948, "3.67 s",  "10.21 s", "primer instante en que habla"],
+  ["frac_lat_slow",     0.889, "0.44",    "0.79",    "fracción de respuestas > 2 s"],
+  ["lat_cv",            0.129, "0.87",    "0.52",    "variación de la latencia"],
+  ["lat_min",           0.833, "0.50 s",  "1.55 s",  "su respuesta más rápida"],
+  ["silence_ratio",     0.803, "0.23",    "0.30",    "silencio total de la llamada"],
+  ["n_barge0",          0.203, "8.16",    "2.42",    "veces que interrumpe al agente"],
+  ["lat_med",           0.796, "2.05 s",  "3.13 s",  "latencia mediana"],
+  ["overlap_ratio0",    0.233, "0.15",    "0.06",    "su habla que solapa al agente"],
+  ["seg0_min",          0.756, "0.29 s",  "0.42 s",  "su intervención más corta"],
+  ["frac_short0",       0.294, "0.22",    "0.14",    "turnos < 0.5 s (backchannels)"],
+  ["micropause_rate0",  0.299, "9.88",    "5.50",    "micro-pausas dentro del turno"],
+  ["lat_mad",           0.307, "2.04",    "1.46",    "desvío absoluto de la latencia"],
+  ["speech_ratio1",     0.155, "0.54",    "0.45",    "⚠ canal del agente, no del llamante"],
+];
+// ---- features acusticas: [nombre, AUC, humano, bot, fragil?, nota]
+const AUDIO = [
+  ["b_3k4_4k",     0.026, "0.0225",  "0.0025",  1, "energía sobre el corte telefónico"],
+  ["sil_cen_std",  0.048, "424",     "197",     1, "variación espectral del silencio"],
+  ["sil_flat_std", 0.079, "0.131",   "0.065",   1, "planitud del silencio"],
+  ["mod_6_12hz",   0.917, "0.207",   "0.260",   0, "modulación rápida de la envolvente"],
+  ["env_cv",       0.119, "1.07",    "0.78",    0, "variación de la envolvente"],
+  ["flat_mean",    0.122, "0.060",   "0.033",   1, "planitud espectral del habla"],
+  ["b_3k_4k",      0.122, "0.041",   "0.014",   1, "banda 3–4 kHz"],
+  ["f0_jitter",    0.833, "0.0213",  "0.0259",  0, "micro-variación de tono"],
+  ["rms_speech_db",0.799, "−22.2 dB","−17.2 dB",1, "nivel medio del habla"],
+  ["noise_rms_cv", 0.173, "1.12",    "1.00",    1, "estabilidad del piso de ruido"],
+  ["cen_std",      0.179, "575 Hz",  "387 Hz",  0, "variación del centroide"],
+  ["crest_db",     0.219, "19.9 dB", "16.4 dB", 1, "factor de cresta"],
+  ["voiced_frac",  0.741, "0.649",   "0.691",   0, "fracción sonora"],
+  ["f0_smooth",    0.222, "0.489",   "0.409",   0, "contornos de tono suaves"],
+];
+
+const tip = document.getElementById("tip");
+function hookTip(el, html){
+  el.addEventListener("pointerenter", e => {
+    tip.innerHTML = html; tip.classList.add("on");
+  });
+  el.addEventListener("pointermove", e => {
+    const w = 270, pad = 14;
+    tip.style.left = Math.min(e.clientX + pad, innerWidth - w - pad) + "px";
+    tip.style.top = Math.max(8, e.clientY - 56) + "px";
+  });
+  el.addEventListener("pointerleave", () => tip.classList.remove("on"));
+}
+
+function renderAuc(node, rows, withFlag){
+  node.innerHTML = rows.map(r => {
+    const [name, auc, mh, ms] = r;
+    const frag = withFlag ? r[4] : 0;
+    const note = withFlag ? r[5] : r[4];
+    const toBot = auc > 0.5;
+    const lo = Math.min(auc, 0.5) * 100, hi = Math.max(auc, 0.5) * 100;
+    return `<div class="auc-row" data-h="${mh}" data-s="${ms}" data-n="${note}" data-name="${name}" data-auc="${auc.toFixed(3)}">
+      <span class="auc-name">${name}${frag ? ' <span class="flag">▲</span>' : ""}</span>
+      <span class="track"><span class="fill ${toBot ? "s" : "h"}"
+        style="left:${lo}%;width:${hi - lo}%"></span></span>
+      <span class="auc-val"><b>${auc.toFixed(3)}</b> ${frag ? "frágil" : ""}</span>
+    </div>`;
+  }).join("");
+  node.querySelectorAll(".auc-row").forEach(row => {
+    hookTip(row, `<b>${row.dataset.name}</b> — AUC ${row.dataset.auc}<br>${row.dataset.n}<br>
+      humano <b>${row.dataset.h}</b> · bot <b>${row.dataset.s}</b>`);
+  });
+}
+renderAuc(document.getElementById("auc-turnos"), TURNOS, false);
+renderAuc(document.getElementById("auc-audio"), AUDIO, true);
+
+// ---- histograma de onset0
+const BINS = [[85,0],[13,5],[5,20],[4,1],[40,57],[3,86],[0,31],[0,1]];
+const X0 = 46, X1 = 700, Y0 = 210, TOP = 22, MAXV = 90;
+const bw = (X1 - X0) / BINS.length;
+let bars = "", xl = "";
+BINS.forEach(([h, s], i) => {
+  const cx = X0 + bw * i + bw / 2;
+  [[h, "var(--humano)", -1], [s, "var(--sintetico)", 1]].forEach(([v, col, side]) => {
+    const w = 30, x = cx + (side < 0 ? -w - 1 : 1);
+    const hh = v / MAXV * (Y0 - TOP);
+    if (v > 0) bars += `<rect x="${x}" y="${Y0 - hh}" width="${w}" height="${hh}"
+      fill="${col}" rx="4" ry="4"/><rect x="${x}" y="${Y0 - Math.min(hh,5)}" width="${w}"
+      height="${Math.min(hh,5)}" fill="${col}"/>`;
+    if (v >= 20) bars += `<text x="${x + w/2}" y="${Y0 - hh - 6}" font-family="IBM Plex Mono, monospace"
+      font-size="10" font-weight="600" fill="${col}" text-anchor="middle">${v}</text>`;
+  });
+  xl += `<text x="${cx}" y="${Y0 + 15}">${i*2}–${i*2+2}</text>`;
+});
+// el cero que cuenta la historia
+bars += `<text x="${X0 + bw/2 + 16}" y="${Y0 - 8}" font-family="IBM Plex Mono, monospace"
+  font-size="11" font-weight="600" fill="var(--sintetico)" text-anchor="middle">0</text>`;
+document.getElementById("bars-onset").innerHTML = bars;
+document.getElementById("xlab-onset").innerHTML = xl;
+
+// ---- curvas de ventana
+const WA = [[10,1.000,92],[20,1.000,313],[40,1.000,353]];
+const WC = [[15,0.9710,247],[20,0.9180,317],[30,0.9541,350],[45,0.9587,353],
+            [60,0.9738,353],[90,0.9984,353],[120,0.9992,353]];
+const wx = s => 48 + (s / 130) * (676 - 48);
+const wy = a => 192 - ((a - 0.90) / 0.10) * (192 - 32);
+function path(d, col){
+  const pts = d.map(([s,a]) => `${wx(s).toFixed(1)},${wy(a).toFixed(1)}`);
+  return `<polyline points="${pts.join(" ")}" fill="none" stroke="${col}" stroke-width="2"
+    stroke-linejoin="round"/>` + d.map(([s,a,n]) =>
+    `<circle cx="${wx(s).toFixed(1)}" cy="${wy(a).toFixed(1)}" r="4.5" fill="${col}"
+      stroke="var(--surface)" stroke-width="2"><title>${s} s · AUC ${a.toFixed(4)} · ${n} llamadas</title></circle>`).join("");
+}
+document.getElementById("lines-window").innerHTML =
+  path(WC, "var(--humano)") + path(WA, "var(--sintetico)") +
+  `<text x="${wx(40)+12}" y="${wy(1.0)+4}" font-family="IBM Plex Mono, monospace" font-size="10"
+     font-weight="600" fill="var(--sintetico)">1.000 con 20 s</text>
+   <text x="${wx(120)-4}" y="${wy(0.9992)+18}" font-family="IBM Plex Mono, monospace" font-size="10"
+     font-weight="600" fill="var(--humano)" text-anchor="end">0.999 con 120 s</text>`;
+document.getElementById("xlab-window").innerHTML =
+  [15,30,60,90,120].map(s => `<text x="${wx(s).toFixed(1)}" y="207">${s}</text>`).join("");
+</script>

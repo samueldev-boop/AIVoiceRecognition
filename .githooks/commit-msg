@@ -1,0 +1,33 @@
+#!/bin/sh
+# Rechaza el commit si el mensaje no lleva el prefijo de la convencion.
+# Formato: <tipo>(#<issue>): mensaje
+
+msg=$(sed -n '1p' "$1")
+
+# los merges pasan
+case "$msg" in
+  "Merge "*|"Revert "*) exit 0 ;;
+esac
+
+if printf '%s' "$msg" | grep -qE '^(feat|fix|model|infra|docs|chore)\(#[0-9]+\): .{4,}'; then
+  exit 0
+fi
+
+cat >&2 <<'MSG'
+
+Mensaje de commit rechazado.
+
+Formato esperado:
+  <tipo>(#<issue>): mensaje en imperativo
+
+  tipos: feat | fix | model | infra | docs | chore
+
+Ejemplo:
+  model(#3): sustituir turns/*.json por silero vad a 8 khz
+
+El prefijo se inserta solo si la rama se llama <tipo>/<issue>-<slug>
+(por ejemplo model/3-vad-silero) y los hooks estan instalados:
+  git config core.hooksPath .githooks
+
+MSG
+exit 1

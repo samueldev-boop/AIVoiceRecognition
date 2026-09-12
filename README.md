@@ -79,12 +79,21 @@ intervención del llamante** (~1–3 s de habla, normalmente dentro de los prime
 llamada). Con la primera *palabra* literal no alcanza: no se puede estimar piso de ruido ni
 espectro con 0.3 s.
 
-| Etapa | Qué usa | Coste | Salida |
-| --- | --- | --- | --- |
-| 0 | Formato, 2 canales, ≥1 s de habla en ch0 | <10 ms | rechaza o degrada |
-| 1 | 1ª intervención + primeros 20 s: canal, prosodia, latencia de entrada | ~0.3 s | si la probabilidad calibrada sale de [0.15, 0.85], **responde** |
-| 2 | ASR sobre ch0 y ch1 recortados | 5–10 s | confianza por canal, razón entre canales, artefactos de lectura |
-| 3 | Conducta con la llamada completa | ~0.5 s | fusión final |
+| Etapa | Qué usa | Audio | Coste | Rendimiento medido |
+| --- | --- | --- | --- | --- |
+| 0 | Formato, 2 canales, ≥1 s de habla en ch0 | — | <10 ms | rechaza o degrada |
+| 1 | 139 features sobre la 1ª intervención del llamante | 10.5 s de media | ~0.1 s | CV-AUC 0.984 · val AUC 0.998 |
+| 1b | Las mismas sobre los primeros 20 s | 20 s | ~0.1 s | CV-AUC 0.997 · val AUC 0.999 |
+| 2 | ASR sobre ch0 y ch1 recortados | — | 5–10 s | pendiente (#9) |
+| 3 | Todo, con la llamada completa | 148 s de media | ~0.9 s | CV-AUC 0.999 · **val AUC 1.000, 0 FP** |
+
+Medido sobre las 353 llamadas, con las fronteras de nuestro propio VAD y no con las del
+dataset. **La primera intervención del llamante ya decide casi todo**: eso es lo que hace
+realista responder sin esperar la llamada completa.
+
+Y el subconjunto que sobrevive a un cambio de equipo —conducta, prosodia y razones entre
+canales, 89 de las 139 features— llega solo a **val AUC 1.000 con 0 falsos positivos**
+(CV-AUC 0.998). La familia de ganancia, la más frágil, se queda en CV-AUC 0.789.
 
 Watchdog de 25 s: si una etapa se agota, se responde con lo que ya votó. `confidence` refleja
 **qué etapas alcanzaron a votar**; una sola capa nunca devuelve más de 0.9.
@@ -110,8 +119,8 @@ app/         servicio
   main.py      FastAPI: /health, /detect y los estáticos
   audio.py     decodifica base64 y valida el clip (etapa 0)
   vad.py       actividad de voz por canal con webrtcvad
-  intervalos.py  union, solape e IoU de turnos
-  features.py  extractor único con presupuesto   -> #4
+  intervalos.py  unión, solape e IoU de turnos
+  features.py  extractor único: 139 features en 6 grupos, con presupuesto de audio
   model.py     carga del artefacto y scoring     -> #5
   schemas.py   contrato de entrada y salida
   config.py    variables de entorno
@@ -124,9 +133,12 @@ analysis/    exploración: sondas de features y banco de estrés
 docs/        informe de exploración
 ```
 
-`features.py` y `model.py` son la estructura con la firma ya fijada; cada uno lanza
-`NotImplementedError` apuntando a su issue. Mientras no haya modelo entrenado, `/detect`
-valida el clip y responde 503 con el motivo en lugar de adivinar.
+`model.py` es la estructura con la firma ya fijada y lanza `NotImplementedError` apuntando a
+su issue. Mientras no haya modelo entrenado, `/detect` valida el clip y responde 503 con el
+motivo en lugar de adivinar.
+
+`analysis/` queda como registro de la exploración inicial; `app/features.py` la sustituye y
+esos scripts se retirarán cuando caigan #5 y #11.
 
 `analysis/` es exploratorio y se conserva como registro de lo medido: `turns_probe` y
 `audio_probe` extraen features y miden su poder discriminativo, `baseline` y `ablation`

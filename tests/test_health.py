@@ -20,13 +20,17 @@ def test_detect_rechaza_base64_invalido():
         assert r.status_code == 422
 
 
-def test_detect_sin_modelo_responde_503():
+def test_detect_sin_modelo_responde_503(tmp_path, monkeypatch):
     # Sin artefacto entrenado, /detect no adivina: informa que no hay modelo.
     import base64
     import io
 
     import numpy as np
     import soundfile as sf
+
+    from app import config
+
+    monkeypatch.setattr(config, "MODEL_PATH", str(tmp_path / "missing.joblib"))
 
     sr = 8000
     n = sr * 10

@@ -8,7 +8,6 @@ Transcribe solo el canal 0 para que sea barato. Guarda un CSV incremental.
 """
 
 import csv
-import json
 import os
 import random
 import subprocess

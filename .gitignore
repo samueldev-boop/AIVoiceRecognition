@@ -9,6 +9,9 @@ DATASET.md
 analysis/*.csv
 analysis/*.txt
 analysis/transcripts/
+analysis/issue5/
+model/*.joblib
+speaker_groups.csv
 
 # --- entorno y artefactos locales ---
 .venv/

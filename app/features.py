@@ -476,7 +476,7 @@ def _perfil(x: np.ndarray, sr: int, turnos: list[dict], canal: int) -> dict:
     return p
 
 
-def _razones(x: np.ndarray, sr: int, turnos: list[dict]) -> dict:
+def _razones(x: np.ndarray, sr: int, turnos: list[dict], *, faltantes: bool = False) -> dict:
     """Compara el llamante con el agente DENTRO de la misma grabacion.
 
     El canal 1 es un TTS conocido en todas las llamadas, asi que sirve de referencia: la
@@ -488,7 +488,8 @@ def _razones(x: np.ndarray, sr: int, turnos: list[dict]) -> dict:
     claves_cociente = ("cen_mean", "b_3k4_4k", "b_3k_4k", "flat_mean", "zcr_mean",
                        "mod_2_6hz", "env_cv", "f0_cv", "jitter_local", "shimmer_local",
                        "ac_peak_mean", "voiced_frac")
-    vacio = {f"razon_{k}": 0.0 for k in claves_resta + claves_cociente}
+    vacio = {f"razon_{k}": np.nan if faltantes else 0.0
+             for k in claves_resta + claves_cociente}
 
     p0 = _perfil(x, sr, turnos, 0)
     p1 = _perfil(x, sr, turnos, 1)
@@ -499,7 +500,9 @@ def _razones(x: np.ndarray, sr: int, turnos: list[dict]) -> dict:
     for k in claves_resta:
         f[f"razon_{k}"] = float(p0.get(k, 0.0) - p1.get(k, 0.0))
     for k in claves_cociente:
-        f[f"razon_{k}"] = float(p0.get(k, 0.0) / (abs(p1.get(k, 0.0)) + EPS))
+        denominador = abs(p1.get(k, 0.0))
+        f[f"razon_{k}"] = (np.nan if faltantes and denominador <= EPS else
+                            float(p0.get(k, 0.0) / (denominador + EPS)))
     return f
 
 
@@ -532,7 +535,7 @@ def _recortar(x: np.ndarray, sr: int, turnos: list[dict], presupuesto: str):
 
 
 def extraer(x: np.ndarray, sr: int, turnos: list[dict],
-            presupuesto: str = "full") -> dict:
+            presupuesto: str = "full", *, faltantes: bool = False) -> dict:
     """Vector de features del llamante para el presupuesto de audio indicado.
 
     x: (n, 2) en int16, canal 0 = llamante. turnos: salida de app.vad.turnos().
@@ -548,8 +551,9 @@ def extraer(x: np.ndarray, sr: int, turnos: list[dict],
     f = {"dur_usada_s": duracion}
     f.update(_conducta(turnos, duracion))
     f.update(_acustica(x, sr, turnos))
-    f.update(_razones(x, sr, turnos))
-    return {k: (0.0 if v is None or not np.isfinite(v) else float(v)) for k, v in f.items()}
+    f.update(_razones(x, sr, turnos, faltantes=faltantes))
+    return {k: ((np.nan if faltantes else 0.0) if v is None or not np.isfinite(v)
+                else float(v)) for k, v in f.items()}
 
 
 def claves(presupuesto: str = "full") -> list[str]:

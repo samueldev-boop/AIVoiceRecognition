@@ -33,11 +33,8 @@ from sklearn.preprocessing import StandardScaler
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-sys.path.insert(0, os.path.join(ROOT, "analysis"))
 
-import turns_probe  # noqa: E402
-
-from app import intervalos, vad  # noqa: E402
+from app import features, intervalos, vad  # noqa: E402
 
 SEMILLAS = 10
 
@@ -118,8 +115,8 @@ def main():
             n_seg["propio"][canal] += sum(1 for t in propio if t["channel"] == canal)
 
         dur = float(r["duration_s"])
-        a, b = turns_probe.features(ref, dur), turns_probe.features(propio, dur)
-        if a is None or b is None:
+        a, b = features.conducta(ref, dur), features.conducta(propio, dur)
+        if not a or not b:
             descartadas.append((anon, a is None, b is None))
             continue
         f_ref.append(a)

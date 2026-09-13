@@ -17,9 +17,14 @@ jobs:
       - name: Secretos, dataset y configuracion critica
         env:
           BASE: ${{ github.base_ref }}
+          RAMA: ${{ github.head_ref }}
           ETIQUETAS_JSON: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: |
           git fetch --no-tags origin "$BASE"
           etiquetas=$(printf '%s' "$ETIQUETAS_JSON" | jq -r 'join(",")')
           echo "etiquetas del PR: ${etiquetas:-(ninguna)}"
-          bash .github/scripts/guardia.sh "origin/$BASE...HEAD" "$etiquetas"
+          modo=""
+          if [ "$RAMA" = "stage" ] && [ "$BASE" = "main" ]; then
+            modo="integracion"
+          fi
+          bash .github/scripts/guardia.sh "origin/$BASE...HEAD" "$etiquetas" "$modo"

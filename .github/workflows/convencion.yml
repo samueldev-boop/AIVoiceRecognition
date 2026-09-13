@@ -17,9 +17,14 @@ jobs:
           tipos='feat|fix|model|infra|docs|chore'
           fallo=0
 
+          # Una PR de integracion no cierra un issue concreto, asi que no puede cumplir
+          # <tipo>(#issue): nada. Se exime entera, nombre de rama y titulo.
           if [ "$RAMA" = "stage" ] && [ "$DESTINO" = "main" ]; then
-            echo "PR de integracion stage -> main: no se comprueba el nombre de rama."
-          elif printf '%s' "$RAMA" | grep -qE "^($tipos)/[0-9]+-[a-z0-9-]+$"; then
+            echo "PR de integracion stage -> main: no se comprueban nombre ni titulo."
+            exit 0
+          fi
+
+          if printf '%s' "$RAMA" | grep -qE "^($tipos)/[0-9]+-[a-z0-9-]+$"; then
             echo "Rama correcta: $RAMA"
           else
             echo "::error::Rama '$RAMA' invalida. Formato: <tipo>/<issue>-<slug>, por ejemplo model/3-vad-silero"

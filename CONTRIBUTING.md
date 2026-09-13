@@ -61,7 +61,8 @@ formato) y `pre-commit` (bloquea secretos y archivos prohibidos).
 
 ## Pull requests
 
-- **Destino `stage`**, siempre. `stage → main` sólo cuando la integración está estable.
+- **Destino `stage`**, siempre. `stage → main` sólo cuando la integración está estable; esa
+  PR de integración no necesita prefijo ni etiqueta (ver más abajo).
 - **Título del PR con el mismo prefijo que los commits**: `model(#3): vad propio con silero`.
 - Un PR por issue. Si el PR crece más allá del issue, se parte.
 - En la descripción: qué cambia, cómo se probó y `Closes #<issue>`.
@@ -75,6 +76,11 @@ Hay dos niveles, y la diferencia importa:
 | --- | --- | --- |
 | **Prohibido** | Cualquier `.env`, derivados del dataset (`audio/`, `turns/`, `manifest.csv`, `DATASET.md`, `*.wav`, `*.zip`, salidas de `analysis/`) y cadenas con aspecto de credencial | **No se desbloquea.** Hay que sacarlo del cambio; si la credencial era real, rotarla |
 | **Vigilado** | `Dockerfile`, `.dockerignore`, `docker-compose.yml`, `Caddyfile`, `.gitignore`, `requirements*.txt`, `pyproject.toml`, cualquier `*.yml` / `*.yaml`, y todo `.github/`, `.githooks/` y `deploy/` | Etiqueta **`config-revisada`** en el PR. Al ponerla, el check se repite solo y pasa a verde |
+
+**Las PR de integración `stage → main` van exentas del nivel vigilado**, y también de la
+convención de nombre y título: no cierran un issue concreto, y la configuración que arrastran
+ya se revisó una por una en su PR de origen. Volver a pedir la etiqueta ahí añadiría fricción
+sin añadir seguridad. El nivel **prohibido no se exime nunca**, ni en integración.
 
 La idea del nivel vigilado no es impedir el cambio: es que **no pueda ocurrir por accidente**.
 Si tocas la configuración a propósito, pones la etiqueta y queda registrado; si aparece en un PR

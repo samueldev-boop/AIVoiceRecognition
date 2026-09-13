@@ -1,4 +1,9 @@
-"""Durable audit publication, independent of MongoDB availability."""
+"""Referencia duradera a las llamadas inciertas, independiente de la disponibilidad de MongoDB.
+
+Solo se registran las llamadas en las que el modelo no llego a una conclusion clara. De cada
+una se guarda una referencia (huella del audio, identificador opaco, decision y como se
+llego a ella), nunca el audio: sirve para recuperarla despues en el ciclo de reentrenamiento.
+"""
 
 import hashlib
 import hmac
@@ -7,11 +12,36 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from app import config
 from src.config import Settings
 from src.schemas import CallAuditRecord
 from src.storage import atomic_write
 
 logger = logging.getLogger("altur.audit")
+
+# Etapas en las que la cascada no pudo decidir y se abstuvo hacia "persona".
+ABSTENCIONES = ("sin_habla", "watchdog")
+
+
+def motivos_de_incertidumbre(resultado: dict[str, Any]) -> list[str]:
+    """Por que una respuesta de la cascada es incierta. Lista vacia si la decision es clara.
+
+    - probabilidad_ambigua: la probabilidad final cae dentro de la banda de ambiguedad, la
+      misma que hace escalar a la cascada (por defecto 0.10-0.90);
+    - desacuerdo: dos presupuestos de audio se contradijeron;
+    - abstencion: no hubo habla utilizable, se agoto el tiempo o se corto entre etapas.
+    """
+    motivos = []
+    p = resultado.get("probability_synthetic")
+    minimo, maximo = config.AUDIT_BANDA
+    if p is not None and minimo <= p <= maximo:
+        motivos.append("probabilidad_ambigua")
+    if resultado.get("disagreement"):
+        motivos.append("desacuerdo")
+    etapa = str(resultado.get("stage", ""))
+    if etapa in ABSTENCIONES or etapa.endswith("+limite"):
+        motivos.append("abstencion")
+    return motivos
 
 
 def log_detection_event(
@@ -26,18 +56,16 @@ def log_detection_event(
     disagreement: bool = False,
     layer_scores: dict[str, Any] | None = None,
     budget_scores: dict[str, Any] | None = None,
-    acoustics: dict[str, Any] | None = None,
-    conversation: dict[str, Any] | None = None,
-    asr: dict[str, Any] | None = None,
+    uncertainty_reasons: list[str] | None = None,
     *,
     input_sha256: str | None = None,
     model_version: str | None = None,
     model_artifact_sha256: str | None = None,
 ) -> str:
-    """Return an event ID only after durable publication; never manufacture telemetry."""
+    """Publica el evento y devuelve su ID solo cuando ya esta en disco."""
     settings = Settings.from_env()
     event_id = uuid.uuid4().hex
-    # Never persist external IDs. Without a private key, omit cross-request correlation.
+    # Nunca se guarda un ID externo en claro. Sin clave privada no hay correlacion.
     key = settings.audit_id_key.get_secret_value()
     opaque_call = (
         hmac.new(key.encode(), call_id.encode(), hashlib.sha256).hexdigest()
@@ -66,9 +94,7 @@ def log_detection_event(
             "disagreement": disagreement,
             "layer_scores": layer_scores or {},
             "budget_scores": budget_scores or {},
-            "acoustics": acoustics,
-            "conversation": conversation,
-            "asr": asr,
+            "uncertainty_reasons": uncertainty_reasons or [],
         },
     )
     content = record.model_dump_json().encode("utf-8")

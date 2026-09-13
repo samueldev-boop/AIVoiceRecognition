@@ -1,4 +1,9 @@
-"""Versioned audit contract. Predictions and verified labels are separate facts."""
+"""Contrato versionado de la referencia a una llamada incierta.
+
+No es un dataset: guarda la decision del modelo y como se llego a ella, pero ni audio, ni
+transcripcion, ni etiqueta. Sirve para localizar despues la llamada y llevarla al ciclo de
+reentrenamiento, que vive fuera de este modulo.
+"""
 
 from __future__ import annotations
 
@@ -42,21 +47,14 @@ class AnalysisPayload(Document):
     disagreement: bool = False
     layer_scores: dict[str, Probability] = Field(default_factory=dict)
     budget_scores: dict[str, Probability] = Field(default_factory=dict)
-    acoustics: dict[str, float] | None = None
-    conversation: dict[str, float] | None = None
-    asr: dict[str, float] | None = None
+    # Por que la llamada se considero incierta: probabilidad_ambigua, desacuerdo, abstencion.
+    uncertainty_reasons: list[Identifier] = Field(default_factory=list, max_length=10)
 
     @model_validator(mode="after")
     def duration_bounds(self) -> AnalysisPayload:
         if any(t.end > self.audio_duration_s for t in self.turns):
             raise ValueError("turn exceeds audio duration")
         return self
-
-
-class VerifiedLabel(Document):
-    value: Literal["human", "synthetic"]
-    provenance: Identifier
-    verified: bool = False
 
 
 class CallAuditRecord(Document):
@@ -68,15 +66,11 @@ class CallAuditRecord(Document):
     model_version: str = Field(default="unknown", min_length=1, max_length=128)
     model_artifact_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     pipeline_version: str = Field(default="audit-v1", min_length=1, max_length=128)
-    group_ids: list[Identifier] = Field(default_factory=list, max_length=32)
+    # Referencia al audio: su huella y, si existe, donde lo guarda quien lo tiene.
     input_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     audio_uri: str | None = Field(default=None, max_length=1024)
-    parameters: dict[str, JsonValue] = Field(default_factory=dict)
     decision: DecisionPayload
     analysis: AnalysisPayload
-    label: VerifiedLabel | None = None
-    quality: Literal["unknown", "accepted", "rejected"] = "unknown"
-    status_for_training: Literal["unlabeled", "ready", "excluded"] = "unlabeled"
     errors: list[Identifier] = Field(default_factory=list, max_length=100)
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
@@ -93,11 +87,3 @@ class CallAuditRecord(Document):
         if value and ("?" in value or "@" in value or not value.startswith("s3://")):
             raise ValueError("audio_uri must be a private s3 object reference without credentials")
         return value
-
-    @model_validator(mode="after")
-    def training_readiness(self) -> CallAuditRecord:
-        if self.status_for_training == "ready" and (
-            self.label is None or not self.label.verified or self.quality != "accepted"
-        ):
-            raise ValueError("ready requires a verified label and accepted quality")
-        return self

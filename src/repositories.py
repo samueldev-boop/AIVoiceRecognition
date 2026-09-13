@@ -1,4 +1,4 @@
-"""MongoDB persistence; raw events are immutable and replay cannot reset labels."""
+"""Persistencia en MongoDB; los eventos son inmutables y repetirlos no los altera."""
 
 import hashlib
 import json
@@ -6,7 +6,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Protocol
 
-from pymongo import ASCENDING, DESCENDING
+from pymongo import ASCENDING
 from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from src.schemas import CallAuditRecord
@@ -40,7 +40,7 @@ class MongoAuditRepository:
             partialFilterExpression={"event_id": {"$exists": True}},
         )
         self._create_index([("call_id", ASCENDING)])
-        self._create_index([("status_for_training", ASCENDING), ("timestamp", DESCENDING)])
+        self._create_index([("timestamp", ASCENDING)])
         self._create_index([("input_sha256", ASCENDING)])
 
     def _create_index(self, keys, **options) -> None:
@@ -81,18 +81,3 @@ class MongoAuditRepository:
         if not existing or existing.get("payload_sha256") != digest:
             raise EventConflict("event ID reused with different content")
         return False
-
-    def training_records(self, since: datetime | None = None, until: datetime | None = None):
-        # Include unlabelled records: they can connect identities across labelled samples.
-        # Readiness filtering belongs to dataset preparation, after grouping.
-        # Solo documentos de este contrato: los del auditor anterior no validan y romperian
-        # la exportacion. Se migran aparte con src.migrate_audit si hacen falta.
-        query = {"schema_version": 1}
-        if since is not None or until is not None:
-            query["timestamp"] = {}
-            if since is not None:
-                query["timestamp"]["$gte"] = since
-            if until is not None:
-                query["timestamp"]["$lt"] = until
-        projection = {k: 0 for k in ("_id", "payload_sha256", "ingested_at", "processing_status")}
-        yield from self.collection.find(query, projection).sort("event_id", ASCENDING)

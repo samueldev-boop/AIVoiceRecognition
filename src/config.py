@@ -18,8 +18,6 @@ class Settings(BaseModel):
     # JSONL del auditor anterior: solo lo lee la migracion explicita, la API ya no escribe ahi.
     legacy_audit_log: Path = Path("data/audit.jsonl")
     processed_dir: Path = Path("data/processed")
-    training_dir: Path = Path("data/training")
-    model_dir: Path = Path("model/candidates")
     poll_seconds: float = Field(default=2, gt=0, le=300)
     retry_attempts: int = Field(default=3, ge=1, le=10)
     retry_seconds: float = Field(default=1, ge=0, le=60)

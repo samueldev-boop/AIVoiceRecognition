@@ -28,7 +28,5 @@ __pycache__/
 data/*.jsonl
 data/raw/
 data/processed/
-data/training/
-model/candidates/
 .venv-audit/
 .env

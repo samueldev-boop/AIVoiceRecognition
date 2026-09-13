@@ -68,7 +68,7 @@ traen sus librerías nativas (`libgomp` dentro de `ctranslate2`, `libsndfile` de
 `soundfile`)— y el `gcc` que necesita compilar `webrtcvad` en Python 3.14 se queda en el
 builder.
 
-La auditoría se conserva como JSON en una bandeja duradera; un worker independiente la ingiere en MongoDB Atlas. Arquitectura, configuración y límites de entrenamiento: [docs/data-pipeline.md](docs/data-pipeline.md).
+Las llamadas en las que el modelo no llega a una conclusión clara dejan una referencia (sin audio) que un worker sube a MongoDB Atlas: [docs/data-pipeline.md](docs/data-pipeline.md).
 
 ---
 
@@ -245,6 +245,6 @@ aceptación numérico.
 - **M3 · Demo** — frontend mínimo
 - **M4 · Extras condicionales** — sólo si aportan una ganancia medida
 
-## Pipeline de auditoría y datos
+## Referencias de llamadas inciertas
 
-Worker, MongoDB Atlas, contrato JSON versionado, migración desde JSONL, datasets y candidatos semanales: [guía técnica](docs/data-pipeline.md). Los candidatos no sustituyen automáticamente al modelo servido.
+Solo se guarda una referencia a cada llamada incierta (huella del audio, decisión y motivo), para usarla después en el ciclo de reentrenamiento y actualización continua. No se guarda audio ni se entrena nada automáticamente: [guía técnica](docs/data-pipeline.md).

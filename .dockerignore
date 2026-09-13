@@ -13,7 +13,6 @@ turns/
 manifest.csv
 DATASET.md
 data/
-model/candidates/
 .venv-audit/
 *.zip
 analysis/

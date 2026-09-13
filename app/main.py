@@ -16,7 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__, audio, cascade, config, model, vad
-from app.audit import log_detection_event
+from app.audit import log_detection_event, motivos_de_incertidumbre
 from app.schemas import DetectRequest, DetectResponse, HealthResponse
 
 logging.basicConfig(
@@ -118,12 +118,18 @@ async def detect(req: DetectRequest) -> DetectResponse:
         resultado["ms"],
     )
 
-    # La auditoria se publica fuera del event loop antes de responder. Si falla, por defecto
-    # se responde igual: la deteccion es el contrato y la auditoria es un extra. Con
-    # AUDIT_REQUIRED=true se exige conservarla y, si no se puede, se responde 503.
+    # Solo las llamadas inciertas dejan una referencia para el ciclo de reentrenamiento.
+    motivos = motivos_de_incertidumbre(resultado)
+    if not motivos:
+        return DetectResponse(**resultado)
+
+    # La referencia se publica fuera del event loop antes de responder. Si falla, por
+    # defecto se responde igual: la deteccion es el contrato y la auditoria es un extra.
+    # Con AUDIT_REQUIRED=true se exige conservarla y, si no se puede, se responde 503.
     try:
         await asyncio.to_thread(
             log_detection_event,
+            uncertainty_reasons=motivos,
             call_id=None if req.call_id is None else str(req.call_id),
             is_synthetic=resultado.get(
                 "is_synthetic",

@@ -112,7 +112,9 @@ Una cola externa agregaria infraestructura sin resolver la necesidad inicial de
 persistir el evento antes de confirmar la peticion. La API escribe un archivo temporal,
 hace flush/fsync y publica mediante rename atomico en el mismo filesystem; el worker
 solo lee archivos terminados `*.json`. La API espera esa publicacion en un hilo, fuera
-del event loop, y responde 503 si no puede conservarla.
+del event loop. Si no puede conservarla, registra `event=audit_failed` y responde igual:
+la deteccion es el contrato y no debe caer por un disco lleno o un volumen sin permisos.
+Con `AUDIT_REQUIRED=true` se exige la auditoria y la API responde 503 si falla.
 
 Semantica **al menos una vez**: el JSON original se conserva incluso despues de guardar.
 `data/processed/receipts/` contiene el estado, fecha, hash original y documento normalizado.
@@ -135,7 +137,8 @@ como cola distribuida. Los productores pueden publicar concurrentemente con IDs 
 La deduplicacion de solicitudes HTTP repetidas no es el contrato del worker: solicitudes
 separadas tienen eventos separados; la huella de audio evita duplicarlas en entrenamiento.
 
-En Linux, el bind mount `./data` debe existir y ser escribible por UID/GID `10001:10001`.
+En Linux, el bind mount `./data` debe existir y ser escribible por UID/GID `10001:10001`;
+`deploy/arrancar.sh` lo crea con ese dueno antes de levantar el compose.
 API y worker usan el mismo UID. El chown del Dockerfile no cambia permisos de un bind mount
 del host. Probar esto antes de desplegar. La confirmacion local no protege contra perdida
 fisica del disco: hacen falta backup y monitorizacion de espacio. No se purga RAW

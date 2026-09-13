@@ -1,4 +1,4 @@
-﻿# Dependencias del servicio. Versiones verificadas instalando en Python 3.14.
+# Dependencias del servicio. Versiones verificadas instalando en Python 3.14.
 # Deliberadamente SIN torch: la imagen medida pesa 1.02 GB y arranca en 2.5 s.
 # Lo que necesite torch se entrena aparte (Colab) y se exporta a ONNX.
 

@@ -50,6 +50,13 @@ else
   echo "  creado desde .env.example con permisos 600"
 fi
 
+paso "datos de auditoria"
+# La API y el worker corren con uid 10001 y montan ./data. Si docker crea el directorio,
+# lo crea como root y ninguno de los dos podria escribir.
+mkdir -p "$DESTINO/data/raw" "$DESTINO/data/processed"
+chown -R 10001:10001 "$DESTINO/data"
+echo "  $DESTINO/data escribible por el uid 10001"
+
 paso "levantando el servicio"
 cd "$DESTINO"
 docker compose up -d --build

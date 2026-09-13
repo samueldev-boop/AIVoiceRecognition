@@ -10,6 +10,8 @@ analysis/*.csv
 analysis/*.txt
 analysis/transcripts/
 analysis/issue5/
+analysis/issue11/
+analysis/issue12/
 speaker_groups.csv
 
 # El artefacto entrenado SI se versiona: pesa 50 KB, el Dockerfile copia model/ y en

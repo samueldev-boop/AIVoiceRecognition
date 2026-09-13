@@ -1,4 +1,4 @@
-import json
+﻿import json
 import logging
 import signal
 import time
@@ -41,10 +41,24 @@ def process_record(raw_line: str):
             {"$set": payload},
             upsert=True,
         )
-        tag = "Decisión" if record.decision and not record.analysis else "Análisis/Unificado"
+        tag = "Decision" if record.decision and not record.analysis else "Analisis/Unificado"
         logger.info(f"Ingestado {tag} | call_id: {record.call_id}")
     except Exception as err:
         logger.warning(f"Descarte de registro invalido: {err}")
+
+
+def process_pending_logs() -> int:
+    """Procesa e ingesta todos los registros acumulados en audit.jsonl (util para tests y batch)."""
+    init_db_indexes()
+    if not AUDIT_LOG_PATH.exists():
+        return 0
+    count = 0
+    with open(AUDIT_LOG_PATH, encoding="utf-8-sig") as f:
+        for line in f:
+            if line.strip():
+                process_record(line)
+                count += 1
+    return count
 
 
 def start_worker():
@@ -55,7 +69,8 @@ def start_worker():
 
     logger.info(f"Escuchando eventos en: {AUDIT_LOG_PATH}")
 
-    with open(AUDIT_LOG_PATH, encoding="utf-8") as f:
+    # utf-8-sig ignora automaticamente caracteres BOM generados en Windows
+    with open(AUDIT_LOG_PATH, encoding="utf-8-sig") as f:
         while running:
             line = f.readline()
             if not line:

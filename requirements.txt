@@ -1,4 +1,4 @@
-# Dependencias del servicio. Versiones verificadas instalando en Python 3.14.
+﻿# Dependencias del servicio. Versiones verificadas instalando en Python 3.14.
 # Deliberadamente SIN torch: la imagen medida pesa 1.02 GB y arranca en 2.5 s.
 # Lo que necesite torch se entrena aparte (Colab) y se exporta a ONNX.
 
@@ -8,8 +8,8 @@ uvicorn[standard]==0.52.4
 pydantic==2.13.5
 
 # --- audio y senal ---
-numpy==2.5.3
-scipy==1.18.1
+numpy>=2.0.0,<3.0.0
+scipy>=1.11.0,<2.0.0
 soundfile==0.14.0
 soxr==0.5.0.post1
 praat-parselmouth==0.4.7

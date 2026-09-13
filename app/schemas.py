@@ -1,11 +1,30 @@
-"""Contrato del endpoint. Los campos obligatorios los fija el reto; el resto es diagnostico."""
+﻿"""Contrato del endpoint. Los campos obligatorios los fija el reto; el resto es diagnostico."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class DetectRequest(BaseModel):
-    # WAV estereo 8 kHz en base64. ch0 = llamante, ch1 = agente.
-    audio: str = Field(..., description="WAV estereo 8 kHz codificado en base64")
+    model_config = ConfigDict(extra="ignore")
+
+    # Soporte dual: 'audio_base64' (contrato oficial del jurado) y 'audio' (contrato interno)
+    audio: str | None = Field(default=None, description="WAV estereo 8 kHz codificado en base64")
+    audio_base64: str | None = Field(default=None, description="WAV estereo 8 kHz codificado en base64 (jurado)")
+    call_id: str | None = Field(default=None, description="ID unico de llamada asignado por el jurado")
+
+    @property
+    def raw_audio(self) -> str:
+        return self.audio_base64 or self.audio or ""
+
+    @model_validator(mode="after")
+    def validate_audio_presence(self):
+        target = self.audio_base64 or self.audio
+        if not target:
+            raise ValueError("Se requiere el campo 'audio_base64' o 'audio'")
+        if not self.audio:
+            self.audio = target
+        if not self.audio_base64:
+            self.audio_base64 = target
+        return self
 
 
 class DetectResponse(BaseModel):

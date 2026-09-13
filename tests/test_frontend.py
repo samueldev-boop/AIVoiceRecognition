@@ -27,6 +27,18 @@ def test_los_estaticos_se_sirven(ruta, tipo):
         assert len(r.content) > 200
 
 
+def test_la_interfaz_se_revalida_en_cada_carga():
+    """Tras un despliegue el navegador no puede quedarse con el app.js anterior de su cache."""
+    with TestClient(app) as c:
+        for ruta in ("/", "/app.js", "/tailwind.js"):
+            r = c.get(ruta)
+            assert r.headers["cache-control"] == "no-cache", ruta
+            # no-cache no obliga a descargar otra vez: si no cambio, basta un 304 sin cuerpo.
+            revalidada = c.get(ruta, headers={"if-none-match": r.headers["etag"]})
+            assert revalidada.status_code == 304, ruta
+            assert revalidada.headers["cache-control"] == "no-cache", ruta
+
+
 def test_la_pagina_referencia_sus_archivos():
     html = (ESTATICOS / "index.html").read_text()
     for recurso in ("tailwind.js", "app.js"):

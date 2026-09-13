@@ -202,7 +202,18 @@ async def transcribe(req: TranscribeRequest) -> TranscribeResponse:
     return TranscribeResponse(**resultado, ms=ms)
 
 
+class EstaticosSinCache(StaticFiles):
+    """Sin Cache-Control, el navegador aplica cache heuristica y tras un despliegue puede
+    seguir usando el app.js anterior. Con no-cache revalida siempre por ETag: si el archivo
+    no cambio recibe un 304 sin cuerpo."""
+
+    def file_response(self, *args, **kwargs):
+        respuesta = super().file_response(*args, **kwargs)
+        respuesta.headers["Cache-Control"] = "no-cache"
+        return respuesta
+
+
 # El frontend (#13) se sirve desde el mismo proceso. Se monta al final para que no
 # capture las rutas de la API.
 if os.path.isdir(config.STATIC_DIR):
-    app.mount("/", StaticFiles(directory=config.STATIC_DIR, html=True), name="static")
+    app.mount("/", EstaticosSinCache(directory=config.STATIC_DIR, html=True), name="static")

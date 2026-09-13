@@ -26,4 +26,9 @@ __pycache__/
 .DS_Store
 
 data/*.jsonl
+data/raw/
+data/processed/
+data/training/
+model/candidates/
+.venv-audit/
 .env

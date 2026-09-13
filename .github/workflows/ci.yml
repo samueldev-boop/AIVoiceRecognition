@@ -15,7 +15,7 @@ jobs:
           python-version: "3.14"
           cache: pip
       - run: pip install -r requirements-dev.txt
-      - run: ruff check app tests scripts analysis
+      - run: ruff check src app tests scripts analysis
       # La interfaz no tiene paso de build, asi que su unica red de seguridad de
       # sintaxis es esta: node viene ya en los runners.
       - run: node --check static/app.js
@@ -28,6 +28,7 @@ jobs:
       # Solo comprueba que la imagen se construye. No se publica en ningun registro:
       # el despliegue construye en la propia instancia.
       - run: docker build -t aivoicerecognition:ci .
+      - run: docker build -f Dockerfile.worker -t aivoicerecognition-worker:ci .
 
       # El Caddyfile se valida aparte porque un error suyo no rompe el build de la imagen:
       # se descubrio con caddy en bucle de reinicio, no en CI. DOMINIO se pasa con el mismo

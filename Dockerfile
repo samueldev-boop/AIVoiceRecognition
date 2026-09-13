@@ -15,6 +15,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
+COPY requirements-worker.txt .
 # --no-compile ahorra ~120 MB de bytecode a cambio de ~0.4 s de arranque (medido).
 RUN pip install --no-cache-dir --no-compile -r requirements.txt
 
@@ -34,6 +35,7 @@ ENV PATH="/opt/venv/bin:$PATH" \
 WORKDIR /srv
 
 COPY app/ app/
+COPY src/ src/
 COPY static/ static/
 COPY model/ model/
 

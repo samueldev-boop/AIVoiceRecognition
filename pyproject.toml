@@ -13,3 +13,4 @@ testpaths = ["tests"]
 # Sin esto, "pytest" a secas no encuentra el paquete app: solo "python -m pytest"
 # anade el directorio actual a sys.path.
 pythonpath = ["."]
+markers = ["integration: requires an explicitly configured disposable MongoDB server"]

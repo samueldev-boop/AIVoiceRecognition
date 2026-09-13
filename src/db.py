@@ -1,44 +1,57 @@
-﻿import logging
+"""Lazy, reusable MongoDB client. No network activity at module import."""
 
-from pymongo import ASCENDING, DESCENDING, MongoClient
-from pymongo.errors import PyMongoError
+from threading import Lock
 
-from src.config import COLLECTION_NAME, DATABASE_NAME, MONGO_URI
+from pymongo import MongoClient
 
-logger = logging.getLogger("altur.db")
+from src.config import Settings
 
 _client: MongoClient | None = None
+_lock = Lock()
 
 
 def get_mongo_client() -> MongoClient:
-    """Devuelve el cliente de conexion a Atlas."""
     global _client
-    if _client is None:
-        try:
-            _client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-            _client.admin.command("ping")
-            logger.info("Conexion exitosa a MongoDB Atlas.")
-        except PyMongoError as e:
-            logger.error("Error conectando a MongoDB Atlas: %s", e)
-            raise SystemExit("Fallo critico en conexion con base de datos.") from e
-    return _client
+    with _lock:
+        if _client is None:
+            settings = Settings.from_env()
+            uri = settings.mongodb_uri.get_secret_value()
+            if not uri:
+                raise ValueError("MONGODB_URI is required for database commands")
+            candidate = MongoClient(
+                uri,
+                timeoutMS=settings.mongodb_timeout_ms,
+                serverSelectionTimeoutMS=settings.mongodb_timeout_ms,
+                connectTimeoutMS=settings.mongodb_timeout_ms,
+                socketTimeoutMS=settings.mongodb_timeout_ms,
+                retryWrites=True,
+                w="majority",
+                tz_aware=True,
+                appname="altur-pipeline",
+            )
+            try:
+                candidate.admin.command("ping")
+            except Exception:
+                candidate.close()
+                raise
+            _client = candidate
+        return _client
+
+
+def close_mongo_client() -> None:
+    global _client
+    with _lock:
+        if _client is not None:
+            _client.close()
+            _client = None
 
 
 def get_calls_collection():
-    """Retorna la coleccion configurada en Atlas."""
-    client = get_mongo_client()
-    return client[DATABASE_NAME][COLLECTION_NAME]
+    settings = Settings.from_env()
+    return get_mongo_client()[settings.mongodb_database][settings.mongodb_collection]
 
 
 def init_db_indexes() -> None:
-    """Crea los indices unicos y compuestos en la coleccion."""
-    try:
-        col = get_calls_collection()
-        col.create_index([("call_id", ASCENDING)], unique=True)
-        col.create_index([("status_for_training", ASCENDING), ("timestamp", DESCENDING)])
-    except PyMongoError as e:
-        logger.warning("No se pudieron verificar los indices en Atlas: %s", e)
+    from src.repositories import MongoAuditRepository
 
-
-# Exportaciones directas requeridas por worker y scripts auxiliares
-calls_collection = get_calls_collection()
+    MongoAuditRepository(get_calls_collection()).ensure_indexes()

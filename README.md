@@ -68,7 +68,7 @@ traen sus librerías nativas (`libgomp` dentro de `ctranslate2`, `libsndfile` de
 `soundfile`)— y el `gcc` que necesita compilar `webrtcvad` en Python 3.14 se queda en el
 builder.
 
-No se usa base de datos. Si hace falta auditar predicciones, es una línea JSONL en disco.
+La auditoría se conserva como JSON en una bandeja duradera; un worker independiente la ingiere en MongoDB Atlas. Arquitectura, configuración y límites de entrenamiento: [docs/data-pipeline.md](docs/data-pipeline.md).
 
 ---
 
@@ -244,3 +244,7 @@ aceptación numérico.
 - **M2 · Precisión y robustez** — capa de texto a escala, augmentación contra atajos, selección de clasificador
 - **M3 · Demo** — frontend mínimo
 - **M4 · Extras condicionales** — sólo si aportan una ganancia medida
+
+## Pipeline de auditoría y datos
+
+Worker, MongoDB Atlas, contrato JSON versionado, migración desde JSONL, datasets y candidatos semanales: [guía técnica](docs/data-pipeline.md). Los candidatos no sustituyen automáticamente al modelo servido.

@@ -1,26 +1,50 @@
-﻿services:
+services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: altur-api
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/srv/data
-    env_file:
-      - .env
+    build: .
     restart: unless-stopped
+    env_file: .env
+    environment:
+      CPU_THREADS: "4"
+      OMP_NUM_THREADS: "4"
+      AUDIT_SPOOL_DIR: /srv/data/raw
+      PROCESSED_DIR: /srv/data/processed
+    volumes:
+      - modelos:/models
+      - ./data:/srv/data
+    expose:
+      - "8000"
 
   worker:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    container_name: altur-worker
+    restart: unless-stopped
+    env_file: .env
+    user: "10001:10001"
+    environment:
+      AUDIT_SPOOL_DIR: /srv/data/raw
+      PROCESSED_DIR: /srv/data/processed
     volumes:
       - ./data:/srv/data
-    env_file:
-      - .env
     depends_on:
       - api
+
+  caddy:
+    image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  modelos:
+  caddy_data:
+  caddy_config:

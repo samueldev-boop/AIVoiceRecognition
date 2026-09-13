@@ -1,14 +1,15 @@
-
 """Servicio HTTP: POST /detect y el frontend estatico.
 
 Un solo proceso sirve la API y la interfaz: un despliegue, sin CORS, sin build.
 """
 
 import asyncio
+import hashlib
 import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
@@ -34,6 +35,10 @@ _CLIP_DE_CALENTAMIENTO = np.zeros((config.SAMPLE_RATE, config.CHANNELS), dtype=n
 async def lifespan(app: FastAPI):
     # Todo lo caro se carga una vez al arrancar, nunca por peticion.
     ESTADO["modelo"] = model.cargar()
+    model_path = Path(config.MODEL_PATH)
+    ESTADO["model_artifact_sha256"] = (
+        hashlib.sha256(model_path.read_bytes()).hexdigest() if model_path.is_file() else None
+    )
     if ESTADO["modelo"] is None:
         log.warning("sin modelo en %s: /detect respondera 503", config.MODEL_PATH)
     else:
@@ -113,18 +118,31 @@ async def detect(req: DetectRequest) -> DetectResponse:
         resultado["ms"],
     )
 
-    # Ingestion asincrona a disco (<0.2 ms) para worker y Active Learning
-    log_detection_event(
-        call_id=getattr(req, "call_id", None),
-        is_synthetic=resultado.get(
-            "is_synthetic",
-            bool(resultado.get("probability_synthetic", 0.0) >= 0.5),
-        ),
-        confidence=resultado.get("confidence"),
-        stage=resultado.get("stage", 1),
-        latency_s=(time.perf_counter() - t0),
-        audio_duration_s=duracion,
-    )
+    # Await durable publication outside the event loop before acknowledging the request.
+    try:
+        await asyncio.to_thread(
+            log_detection_event,
+            call_id=getattr(req, "call_id", None),
+            is_synthetic=resultado.get(
+                "is_synthetic",
+                bool(resultado.get("probability_synthetic", 0.0) >= 0.5),
+            ),
+            confidence=resultado.get("confidence"),
+            probability_synthetic=resultado.get("probability_synthetic"),
+            turns=resultado.get("turns"),
+            disagreement=resultado.get("disagreement", False),
+            layer_scores=resultado.get("layer_scores"),
+            budget_scores=resultado.get("budget_scores"),
+            input_sha256=hashlib.sha256(x.tobytes()).hexdigest(),
+            model_version=m.version,
+            model_artifact_sha256=ESTADO.get("model_artifact_sha256"),
+            stage=resultado.get("stage", 1),
+            latency_s=(time.perf_counter() - t0),
+            audio_duration_s=duracion,
+        )
+    except (OSError, ValueError) as exc:
+        log.error("event=audit_failed error_type=%s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="No se pudo conservar la auditoria") from None
 
     return DetectResponse(**resultado)
 

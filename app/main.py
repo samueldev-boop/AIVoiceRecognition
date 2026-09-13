@@ -1,3 +1,4 @@
+
 """Servicio HTTP: POST /detect y el frontend estatico.
 
 Un solo proceso sirve la API y la interfaz: un despliegue, sin CORS, sin build.
@@ -14,6 +15,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__, audio, cascade, config, model, vad
+from app.audit import log_detection_event
 from app.schemas import DetectRequest, DetectResponse, HealthResponse
 
 logging.basicConfig(
@@ -102,9 +104,28 @@ async def detect(req: DetectRequest) -> DetectResponse:
         resultado = cascade.abstencion((time.perf_counter() - t0) * 1000, "sin_habla")
 
     resultado["ms"] = (time.perf_counter() - t0) * 1000
-    log.info("detect clip=%.1fs stage=%s p=%.4f conf=%.3f %.0fms",
-             duracion, resultado["stage"], resultado["probability_synthetic"],
-             resultado["confidence"], resultado["ms"])
+    log.info(
+        "detect clip=%.1fs stage=%s p=%.4f conf=%.3f %.0fms",
+        duracion,
+        resultado["stage"],
+        resultado["probability_synthetic"],
+        resultado["confidence"],
+        resultado["ms"],
+    )
+
+    # Ingestion asincrona a disco (<0.2 ms) para worker y Active Learning
+    log_detection_event(
+        call_id=getattr(req, "call_id", None),
+        is_synthetic=resultado.get(
+            "is_synthetic",
+            bool(resultado.get("probability_synthetic", 0.0) >= 0.5),
+        ),
+        confidence=resultado.get("confidence"),
+        stage=resultado.get("stage", 1),
+        latency_s=(time.perf_counter() - t0),
+        audio_duration_s=duracion,
+    )
+
     return DetectResponse(**resultado)
 
 

@@ -4,13 +4,19 @@
 #   PROHIBIDO  -> no hay forma de saltarlo. Secretos y derivados del dataset.
 #   VIGILADO   -> requiere la etiqueta "config-revisada" en el PR. Configuracion critica.
 #
-# uso: guardia.sh <rango-git> [etiquetas-del-pr-separadas-por-coma]
+# uso: guardia.sh <rango-git> [etiquetas] [integracion]
 #      guardia.sh origin/stage...HEAD "config-revisada,backend"
+#      guardia.sh origin/main...HEAD "" integracion
+#
+# En modo integracion (una PR stage -> main) se salta el nivel VIGILADO: esos cambios ya se
+# revisaron uno a uno en su PR original y volver a pedir la etiqueta anade friccion sin
+# anadir seguridad. El nivel PROHIBIDO no se exime nunca.
 
 set -eu
 
 RANGO="${1:?falta el rango git, por ejemplo origin/stage...HEAD}"
 ETIQUETAS="${2:-}"
+INTEGRACION="${3:-}"
 ETIQUETA_PERMISO="config-revisada"
 
 archivos=$(git diff --name-only --diff-filter=ACMR "$RANGO")
@@ -72,7 +78,10 @@ for f in $archivos; do
   esac
 done
 
-if [ "$aviso" = "1" ]; then
+if [ "$aviso" = "1" ] && [ "$INTEGRACION" = "integracion" ]; then
+  echo "PR de integracion: la configuracion critica que toca ya se reviso en sus PR de origen."
+  for f in $vigilado; do echo "  - $f"; done
+elif [ "$aviso" = "1" ]; then
   echo "Configuracion critica tocada por este PR:"
   for f in $vigilado; do echo "  - $f"; done
   case ",$ETIQUETAS," in

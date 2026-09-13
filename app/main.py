@@ -3,15 +3,17 @@
 Un solo proceso sirve la API y la interfaz: un despliegue, sin CORS, sin build.
 """
 
+import asyncio
 import logging
 import os
 import time
 from contextlib import asynccontextmanager
 
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
-from app import __version__, audio, config, model
+from app import __version__, audio, cascade, config, model, vad
 from app.schemas import DetectRequest, DetectResponse, HealthResponse
 
 logging.basicConfig(
@@ -22,6 +24,9 @@ log = logging.getLogger("detect")
 
 ESTADO: dict = {"modelo": None}
 
+# Clip minimo para calentar el VAD al arrancar: 1 s de silencio estereo.
+_CLIP_DE_CALENTAMIENTO = np.zeros((config.SAMPLE_RATE, config.CHANNELS), dtype=np.int16)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,8 +36,10 @@ async def lifespan(app: FastAPI):
         log.warning("sin modelo en %s: /detect respondera 503", config.MODEL_PATH)
     else:
         log.info("modelo cargado, version %s", ESTADO["modelo"].version)
-    # Pendiente #6: precargar aqui el VAD y el modelo de ASR para que la primera
-    # peticion no pague la carga.
+    # El VAD se calienta al arrancar: la sesion de webrtcvad y el extractor no deben
+    # cargarse dentro de la primera peticion.
+    vad.turnos(_CLIP_DE_CALENTAMIENTO, config.SAMPLE_RATE)
+    log.info("vad listo")
     yield
 
 
@@ -56,7 +63,7 @@ def health() -> HealthResponse:
 
 
 @app.post("/detect", response_model=DetectResponse)
-def detect(req: DetectRequest) -> DetectResponse:
+async def detect(req: DetectRequest) -> DetectResponse:
     t0 = time.perf_counter()
 
     # Etapa 0: validacion de entrada.
@@ -77,14 +84,28 @@ def detect(req: DetectRequest) -> DetectResponse:
             ),
         )
 
-    # Pendiente #6: cascada por etapas con salida temprana y watchdog.
-    raise HTTPException(
-        status_code=503,
-        detail=(
-            f"clip valido ({duracion:.1f}s) pero la cascada no esta implementada todavia: "
-            f"ver #6. ms={1000 * (time.perf_counter() - t0):.1f}"
-        ),
-    )
+    # Etapas 1 a 3: la cascada corre en un hilo porque es trabajo de CPU, y el watchdog
+    # acota el total. Un hilo no se puede matar, asi que la cascada tambien comprueba el
+    # limite entre etapas; este wait_for es el techo duro.
+    restante = max(1.0, config.DETECT_TIMEOUT_S - (time.perf_counter() - t0))
+    try:
+        resultado = await asyncio.wait_for(
+            asyncio.to_thread(cascade.decidir, m, x, sr, limite_s=restante),
+            timeout=restante,
+        )
+    except TimeoutError:
+        log.warning("watchdog: %.1fs agotados, se responde con abstencion", restante)
+        resultado = cascade.abstencion((time.perf_counter() - t0) * 1000, "watchdog")
+    except ValueError as e:
+        # Clip valido en formato pero sin intervenciones utilizables del llamante.
+        log.warning("sin puntuacion posible: %s", e)
+        resultado = cascade.abstencion((time.perf_counter() - t0) * 1000, "sin_habla")
+
+    resultado["ms"] = (time.perf_counter() - t0) * 1000
+    log.info("detect clip=%.1fs stage=%s p=%.4f conf=%.3f %.0fms",
+             duracion, resultado["stage"], resultado["probability_synthetic"],
+             resultado["confidence"], resultado["ms"])
+    return DetectResponse(**resultado)
 
 
 # El frontend (#13) se sirve desde el mismo proceso. Se monta al final para que no

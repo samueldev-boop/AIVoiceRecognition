@@ -103,7 +103,7 @@ def aggregate(logits):
     return float(np.dot((0.6, 0.2, 0.2), stats)), stats
 
 
-def fit_layers(records, y, C, quantile):
+def fit_layers(records, y, C, quantile, active_layers=None):
     indices = group_indices()
     models = {}
     turns, labels, weights = [], [], []
@@ -118,7 +118,7 @@ def fit_layers(records, y, C, quantile):
     turns = np.asarray(turns)
     # Cada llamada pesa uno; se normaliza para mantener comparable el parametro C.
     weights = np.asarray(weights) * len(weights) / np.sum(weights)
-    for name in LAYER_NAMES:
+    for name in active_layers or LAYER_NAMES:
         model = pipeline(C, quantile)
         if name in TURN_GROUPS:
             model.fit(turns[:, indices[name]], labels, logistic__sample_weight=weights)
@@ -133,6 +133,9 @@ def layer_scores(models, records):
     indices = group_indices()
     scores = np.empty((len(records), len(LAYER_NAMES)))
     for j, name in enumerate(LAYER_NAMES):
+        if name not in models:
+            scores[:, j] = 0.5
+            continue
         model = models[name]
         if name in TURN_GROUPS:
             lengths = [len(r["turn_features"]) for r in records]
@@ -154,11 +157,12 @@ def layer_scores(models, records):
 class LayeredClassifier(ClassifierMixin, BaseEstimator):
     """El metamodelo solo ve scores fuera de muestra de sus capas inferiores."""
 
-    def __init__(self, C=0.33, quantile=0.005, inner_splits=3, seed=5):
+    def __init__(self, C=0.33, quantile=0.005, inner_splits=3, seed=5, active_layers=None):
         self.C = C
         self.quantile = quantile
         self.inner_splits = inner_splits
         self.seed = seed
+        self.active_layers = active_layers
 
     def fit(self, X, y):
         records, y = list(X), np.asarray(y)
@@ -168,12 +172,14 @@ class LayeredClassifier(ClassifierMixin, BaseEstimator):
         self.fusion_folds_ = grouped_splits(y, groups, self.inner_splits, self.seed)
         oof = np.full((len(records), len(LAYER_NAMES)), np.nan)
         for train, test in self.fusion_folds_:
-            models = fit_layers([records[i] for i in train], y[train], self.C, self.quantile)
+            models = fit_layers(
+                [records[i] for i in train], y[train], self.C, self.quantile, self.active_layers
+            )
             oof[test] = layer_scores(models, [records[i] for i in test])
         if not np.isfinite(oof).all():
             raise ValueError("scores OOF incompletos")
         self.fusion_ = pipeline(self.C, 0).fit(oof, y)
-        self.layers_ = fit_layers(records, y, self.C, self.quantile)
+        self.layers_ = fit_layers(records, y, self.C, self.quantile, self.active_layers)
         self.classes_ = np.array([0, 1])
         self.training_groups_ = tuple(sorted(set(groups)))
         return self

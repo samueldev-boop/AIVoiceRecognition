@@ -10,6 +10,7 @@ import io
 
 import numpy as np
 import soundfile as sf
+import soxr
 
 from app import config
 
@@ -18,10 +19,20 @@ class AudioInvalido(ValueError):
     """El clip no cumple el formato esperado."""
 
 
+RESAMPLER = "soxr_hq"
+
+
+def remuestrear(x: np.ndarray, sr: int, destino: int = config.SAMPLE_RATE) -> np.ndarray:
+    """Unico remuestreador para corpus, augmentacion y peticiones HTTP."""
+    if sr == destino:
+        return x
+    return soxr.resample(x, sr, destino, quality="HQ")
+
+
 def decodificar(audio_b64: str) -> tuple[np.ndarray, int]:
     """base64 -> (muestras int16 de forma (n, 2), sample rate).
 
-    Devuelve el array tal cual viene: canal 0 = llamante, canal 1 = agente.
+    Normaliza a 8 kHz: canal 0 = llamante, canal 1 = agente.
     """
     try:
         crudo = base64.b64decode(audio_b64, validate=True)
@@ -36,13 +47,14 @@ def decodificar(audio_b64: str) -> tuple[np.ndarray, int]:
     except Exception as e:
         raise AudioInvalido(f"no es un WAV legible: {e}") from e
 
-    return x, sr
+    return remuestrear(x, sr), config.SAMPLE_RATE
 
 
 def leer_wav(ruta: str) -> tuple[np.ndarray, int]:
     """Lee un WAV del disco. Misma salida que decodificar(), para reusar validar()."""
     try:
-        return sf.read(ruta, dtype="int16", always_2d=True)
+        x, sr = sf.read(ruta, dtype="int16", always_2d=True)
+        return remuestrear(x, sr), config.SAMPLE_RATE
     except Exception as e:
         raise AudioInvalido(f"no puedo leer {ruta}: {e}") from e
 

@@ -52,16 +52,26 @@ de Docker.
 
 ## Primer despliegue
 
-Esta secuencia está **verificada en local con `docker compose`**, no solo con `docker build`:
+Un solo comando, idempotente: instala Docker si falta, pone el repositorio en la rama pedida,
+crea el `.env`, levanta el compose y verifica. Sirve igual para el primer despliegue y para
+los siguientes.
 
 ```bash
-ssh despliegue@<ip>
+ssh root@<ip>
+curl -fsSL https://raw.githubusercontent.com/samueldev-boop/AIVoiceRecognition/stage/deploy/arrancar.sh -o arrancar.sh
+less arrancar.sh          # merece leerlo antes de darle sudo
+sudo sh arrancar.sh
+```
+
+O a mano, que es lo que hace el script:
+
+```bash
+sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2 git
+sudo git clone -b stage https://github.com/samueldev-boop/AIVoiceRecognition.git /opt/servicio
 cd /opt/servicio
-git checkout stage
-cp .env.example .env          # rellenar lo necesario
-chmod 600 .env                # solo el usuario de despliegue puede leerlo
-docker compose up -d --build
-./deploy/verificar.sh http://localhost
+sudo cp .env.example .env && sudo chmod 600 .env
+sudo docker compose up -d --build
+sudo sh deploy/verificar.sh http://localhost
 ```
 
 `docker compose up -d --build` construye la imagen en la propia instancia. En 4 vCPU ronda

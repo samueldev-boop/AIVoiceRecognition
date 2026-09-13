@@ -118,11 +118,13 @@ async def detect(req: DetectRequest) -> DetectResponse:
         resultado["ms"],
     )
 
-    # Await durable publication outside the event loop before acknowledging the request.
+    # La auditoria se publica fuera del event loop antes de responder. Si falla, por defecto
+    # se responde igual: la deteccion es el contrato y la auditoria es un extra. Con
+    # AUDIT_REQUIRED=true se exige conservarla y, si no se puede, se responde 503.
     try:
         await asyncio.to_thread(
             log_detection_event,
-            call_id=getattr(req, "call_id", None),
+            call_id=None if req.call_id is None else str(req.call_id),
             is_synthetic=resultado.get(
                 "is_synthetic",
                 bool(resultado.get("probability_synthetic", 0.0) >= 0.5),
@@ -140,9 +142,12 @@ async def detect(req: DetectRequest) -> DetectResponse:
             latency_s=(time.perf_counter() - t0),
             audio_duration_s=duracion,
         )
-    except (OSError, ValueError) as exc:
+    except Exception as exc:
         log.error("event=audit_failed error_type=%s", type(exc).__name__)
-        raise HTTPException(status_code=503, detail="No se pudo conservar la auditoria") from None
+        if config.AUDIT_REQUIRED:
+            raise HTTPException(
+                status_code=503, detail="No se pudo conservar la auditoria"
+            ) from None
 
     return DetectResponse(**resultado)
 

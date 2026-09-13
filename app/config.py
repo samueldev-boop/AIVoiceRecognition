@@ -13,6 +13,10 @@ DETECT_TIMEOUT_S = float(os.getenv("DETECT_TIMEOUT_S", "25"))
 
 STATIC_DIR = os.getenv("STATIC_DIR", "static")
 
+# Si es true, /detect responde 503 cuando no puede conservar el evento de auditoria. Por
+# defecto no: un disco lleno o un volumen sin permisos no debe tumbar la deteccion.
+AUDIT_REQUIRED = os.getenv("AUDIT_REQUIRED", "false").strip().lower() in ("1", "true", "yes")
+
 # Restricciones del formato de entrada, fijadas por el dataset.
 SAMPLE_RATE = 8000
 CHANNELS = 2

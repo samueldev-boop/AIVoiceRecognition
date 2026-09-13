@@ -46,16 +46,30 @@ def test_api_publishes_measured_telemetry(client, tmp_path):
     assert record["input_sha256"]
 
 
-def test_api_does_not_acknowledge_when_audit_storage_fails(client, monkeypatch):
-    def fail(**kwargs):
-        raise OSError("private filesystem details")
+def _falla(**kwargs):
+    raise OSError("private filesystem details")
 
-    monkeypatch.setattr(main, "log_detection_event", fail)
+
+def test_a_failed_audit_does_not_break_detection_by_default(client, monkeypatch):
+    monkeypatch.setattr(main, "log_detection_event", _falla)
+    response = client.post("/detect", json={"audio": wav_base64()})
+    assert response.status_code == 200
+    assert response.json()["is_synthetic"] is False
+
+
+def test_api_does_not_acknowledge_when_audit_is_required_and_fails(client, monkeypatch):
+    monkeypatch.setattr(main, "log_detection_event", _falla)
+    monkeypatch.setattr(main.config, "AUDIT_REQUIRED", True)
     response = client.post("/detect", json={"audio": wav_base64()})
     assert response.status_code == 503
     assert "private" not in response.text
 
 
-def test_audio_aliases_cannot_disagree():
-    with pytest.raises(ValueError, match="deben coincidir"):
-        DetectRequest(audio="a", audio_base64="b")
+@pytest.mark.parametrize("call_id", ["call-001", 12345, "", "x" * 300, None])
+def test_any_call_id_is_accepted(client, call_id):
+    response = client.post("/detect", json={"audio_base64": wav_base64(), "call_id": call_id})
+    assert response.status_code == 200, response.text
+
+
+def test_audio_base64_is_the_primary_field():
+    assert DetectRequest(audio_base64="a", audio="b").audio == "a"

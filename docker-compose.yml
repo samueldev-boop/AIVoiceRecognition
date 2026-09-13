@@ -8,11 +8,31 @@ services:
       # sobresuscripcion de hilos y latencia peor.
       CPU_THREADS: "4"
       OMP_NUM_THREADS: "4"
+      AUDIT_SPOOL_DIR: /srv/data/raw
+      PROCESSED_DIR: /srv/data/processed
     volumes:
       # Cache del modelo de ASR: se descarga una vez por host, no por contenedor.
       - modelos:/models
+      # Bandeja de auditoria compartida con el worker. deploy/arrancar.sh la crea con
+      # dueno 10001; si la crea docker, queda de root y la API no puede escribir.
+      - ./data:/srv/data
     expose:
       - "8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    env_file: .env
+    user: "10001:10001"
+    environment:
+      AUDIT_SPOOL_DIR: /srv/data/raw
+      PROCESSED_DIR: /srv/data/processed
+    volumes:
+      - ./data:/srv/data
+    depends_on:
+      - api
 
   caddy:
     image: caddy:2-alpine

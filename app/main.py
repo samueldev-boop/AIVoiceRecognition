@@ -4,16 +4,19 @@ Un solo proceso sirve la API y la interfaz: un despliegue, sin CORS, sin build.
 """
 
 import asyncio
+import hashlib
 import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__, audio, cascade, config, model, vad
+from app.audit import log_detection_event, motivos_de_incertidumbre
 from app.schemas import DetectRequest, DetectResponse, HealthResponse
 
 logging.basicConfig(
@@ -32,6 +35,10 @@ _CLIP_DE_CALENTAMIENTO = np.zeros((config.SAMPLE_RATE, config.CHANNELS), dtype=n
 async def lifespan(app: FastAPI):
     # Todo lo caro se carga una vez al arrancar, nunca por peticion.
     ESTADO["modelo"] = model.cargar()
+    model_path = Path(config.MODEL_PATH)
+    ESTADO["model_artifact_sha256"] = (
+        hashlib.sha256(model_path.read_bytes()).hexdigest() if model_path.is_file() else None
+    )
     if ESTADO["modelo"] is None:
         log.warning("sin modelo en %s: /detect respondera 503", config.MODEL_PATH)
     else:
@@ -102,9 +109,52 @@ async def detect(req: DetectRequest) -> DetectResponse:
         resultado = cascade.abstencion((time.perf_counter() - t0) * 1000, "sin_habla")
 
     resultado["ms"] = (time.perf_counter() - t0) * 1000
-    log.info("detect clip=%.1fs stage=%s p=%.4f conf=%.3f %.0fms",
-             duracion, resultado["stage"], resultado["probability_synthetic"],
-             resultado["confidence"], resultado["ms"])
+    log.info(
+        "detect clip=%.1fs stage=%s p=%.4f conf=%.3f %.0fms",
+        duracion,
+        resultado["stage"],
+        resultado["probability_synthetic"],
+        resultado["confidence"],
+        resultado["ms"],
+    )
+
+    # Solo las llamadas inciertas dejan una referencia para el ciclo de reentrenamiento.
+    motivos = motivos_de_incertidumbre(resultado)
+    if not motivos:
+        return DetectResponse(**resultado)
+
+    # La referencia se publica fuera del event loop antes de responder. Si falla, por
+    # defecto se responde igual: la deteccion es el contrato y la auditoria es un extra.
+    # Con AUDIT_REQUIRED=true se exige conservarla y, si no se puede, se responde 503.
+    try:
+        await asyncio.to_thread(
+            log_detection_event,
+            uncertainty_reasons=motivos,
+            call_id=None if req.call_id is None else str(req.call_id),
+            is_synthetic=resultado.get(
+                "is_synthetic",
+                bool(resultado.get("probability_synthetic", 0.0) >= 0.5),
+            ),
+            confidence=resultado.get("confidence"),
+            probability_synthetic=resultado.get("probability_synthetic"),
+            turns=resultado.get("turns"),
+            disagreement=resultado.get("disagreement", False),
+            layer_scores=resultado.get("layer_scores"),
+            budget_scores=resultado.get("budget_scores"),
+            input_sha256=hashlib.sha256(x.tobytes()).hexdigest(),
+            model_version=m.version,
+            model_artifact_sha256=ESTADO.get("model_artifact_sha256"),
+            stage=resultado.get("stage", 1),
+            latency_s=(time.perf_counter() - t0),
+            audio_duration_s=duracion,
+        )
+    except Exception as exc:
+        log.error("event=audit_failed error_type=%s", type(exc).__name__)
+        if config.AUDIT_REQUIRED:
+            raise HTTPException(
+                status_code=503, detail="No se pudo conservar la auditoria"
+            ) from None
+
     return DetectResponse(**resultado)
 
 

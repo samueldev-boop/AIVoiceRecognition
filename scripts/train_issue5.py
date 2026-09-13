@@ -32,6 +32,7 @@ from scripts.issue5_data import (
 )
 from scripts.issue5_metrics import bootstrap, metrics
 from scripts.issue5_stress import SCENARIOS, build_stress
+from scripts.issue15_data import load_issue15
 
 SEED = 5
 CANDIDATES = {
@@ -143,6 +144,22 @@ def run(args):
     samples = {budget: [r["samples"][budget] for r in records] for budget in features.Presupuesto}
     y = np.array([s["label"] for s in samples["full"]])
     groups = np.array([s["group"] for s in samples["full"]])
+    issue15 = None
+    issue15_samples = {budget: [] for budget in features.Presupuesto}
+    if args.issue15_dir:
+        issue15 = load_issue15(args.issue15_dir, output, args.jobs)
+        issue15_samples = {
+            budget: [record["samples"][budget] for record in issue15["records"]]
+            for budget in features.Presupuesto
+        }
+        external_groups = {sample["group"] for sample in issue15_samples["full"]}
+        if external_groups & set(groups):
+            raise ValueError("los grupos de issue15 colisionan con el corpus oficial")
+        print(
+            f"issue15: {len(issue15_samples['full'])} llamadas incorporadas al ajuste final; "
+            f"familias={len(external_groups)}",
+            flush=True,
+        )
     folds = grouped_splits(y, groups, 5, SEED)
     split_audit = [
         {
@@ -199,10 +216,22 @@ def run(args):
         "val_used_for_selection": False,
         "grouping_scope": grouping_scope,
         "fingerprint": evaluation_key,
+        "issue15": (
+            {
+                "used_for": "final fit only; excluded from candidate selection and official val",
+                "fingerprint": issue15["fingerprint"],
+                **issue15["audit"],
+            }
+            if issue15
+            else None
+        ),
     }
     save_json(output / "selection_frozen.json", frozen)
     print("Seleccion congelada. Ajustando artefacto solo con train.", flush=True)
-    models = {b: fit_calibrated(samples[b], CANDIDATES[selected[b]]) for b in features.Presupuesto}
+    models = {
+        budget: fit_calibrated(samples[budget] + issue15_samples[budget], CANDIDATES[selected[budget]])
+        for budget in features.Presupuesto
+    }
     bundle = {
         "version": BUNDLE_VERSION,
         "extractor_version": EXTRACTOR_VERSION,
@@ -239,6 +268,7 @@ def run(args):
         "version": BUNDLE_VERSION,
         "manifest": manifest_audit,
         "dataset": summary(all_records),
+        "issue15": issue15["audit"] if issue15 else None,
         "grouping_scope": grouping_scope,
         "excluded": data["excluded"] + validation["excluded"],
         "selection": frozen,
@@ -314,6 +344,11 @@ def main():
     parser.add_argument("--model", type=Path, default=Path("model/model.joblib"))
     parser.add_argument("--speakers", type=Path)
     parser.add_argument("--allow-call-groups", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--issue15-dir",
+        type=Path,
+        help="WAV y manifest.json del issue #15; solo se usan en el ajuste final",
+    )
     parser.add_argument("--jobs", type=int, default=4)
     run(parser.parse_args())
 

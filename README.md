@@ -6,6 +6,10 @@ grabada, el sistema decide si quien llama es una persona o un agente autónomo
 
 **Altur Challenge · HackMTY 2026**
 
+La guía de arquitectura, algoritmo, features, endpoint y despliegue está en
+[docs/documentacion-repositorio.md](docs/documentacion-repositorio.md). Es el
+documento preparado también para la Wiki del proyecto.
+
 ---
 
 ## Contexto
@@ -176,6 +180,19 @@ OPENBLAS_NUM_THREADS=1 python -m scripts.train_issue5
 python -m scripts.report_issue5
 python -m analysis.ablation
 ```
+
+Para reforzar el modelo con las conversaciones autorizadas del issue #15, se
+mantiene la seleccion y la validacion oficial libres de ese material y solo se
+anade al ajuste final:
+
+```bash
+OPENBLAS_NUM_THREADS=1 python -m scripts.train_issue5 \
+  --issue15-dir generated_issue15_jeff
+```
+
+Las variantes de una misma llamada base se agrupan juntas; no se interpretan
+como hablantes independientes. El manifiesto y el artefacto registran el hash,
+las etiquetas y las familias utilizadas.
 
 Se generan `model/model.joblib` y `analysis/issue5/`, con el informe HTML/PDF/Markdown,
 mapas de calor Pearson y Spearman, distribuciones, grafo de correlaciones, nulos, atípicos,

@@ -12,6 +12,7 @@ analysis/transcripts/
 analysis/issue5/
 analysis/issue11/
 analysis/issue12/
+analysis/issue15/
 speaker_groups.csv
 
 # El artefacto entrenado SI se versiona: pesa 50 KB, el Dockerfile copia model/ y en
@@ -20,6 +21,7 @@ speaker_groups.csv
 # --- entorno y artefactos locales ---
 .venv/
 venv/
+.deps/
 __pycache__/
 *.pyc
 .env

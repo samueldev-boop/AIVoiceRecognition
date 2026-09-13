@@ -1,10 +1,13 @@
-﻿import os
+import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from src.db import calls_collection
+
 
 def clear_screen():
     os.system("cls" if os.name == "nt" else "clear")
+
 
 def render_dashboard():
     while True:
@@ -13,7 +16,9 @@ def render_dashboard():
             synth_calls = calls_collection.count_documents({"decision.is_synthetic": True})
             human_calls = calls_collection.count_documents({"decision.is_synthetic": False})
             ready_to_train = calls_collection.count_documents({"status_for_training": "ready"})
-            trained_calls = calls_collection.count_documents({"status_for_training": {"$regex": "^trained"}})
+            trained_calls = calls_collection.count_documents(
+                {"status_for_training": {"$regex": "^trained"}}
+            )
 
             recent_cursor = calls_collection.find().sort("timestamp", -1).limit(5)
             recent_calls = list(recent_cursor)
@@ -22,8 +27,8 @@ def render_dashboard():
 
             clear_screen()
             print("=" * 65)
-            print(f"      ALTUR DEFENSE — RADAR DE MONITOREO BANCARIO")
-            print(f"      Ultima actualizacion: {datetime.now(timezone.utc).strftime('%H:%M:%S UTC')}")
+            print("      ALTUR DEFENSE — RADAR DE MONITOREO BANCARIO")
+            print(f"      Ultima actualizacion: {datetime.now(UTC).strftime('%H:%M:%S UTC')}")
             print("=" * 65)
             print(f"  Total de llamadas registradas : {total_calls}")
             print(f"  Ataques IA detectados         : {synth_calls} ({pct_synth:.1f}%)")
@@ -52,6 +57,7 @@ def render_dashboard():
         except Exception as e:
             print(f"Error consultando Atlas: {e}")
             time.sleep(3)
+
 
 if __name__ == "__main__":
     render_dashboard()

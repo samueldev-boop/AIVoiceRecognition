@@ -1,24 +1,27 @@
-﻿import logging
-from typing import List, Dict, Any
+import logging
+from typing import Any
+
 from src.db import calls_collection
 
 logger = logging.getLogger("altur.curation")
 
-def validate_call_audio(analysis: Dict[str, Any]) -> bool:
+
+def validate_call_audio(analysis: dict[str, Any]) -> bool:
     if not analysis:
         return False
     turns = analysis.get("turns", [])
     ch0_duration = sum(t["end"] - t["start"] for t in turns if t.get("channel") == 0)
     if ch0_duration < 1.0:
         return False
-    
+
     acoustics = analysis.get("acoustics") or {}
     pitch = acoustics.get("pitch_mean_hz") or acoustics.get("pitch_f0_mean")
     if not pitch or pitch <= 0:
         return False
     return True
 
-def select_training_batch(max_per_class: int = 100) -> List[Dict[str, Any]]:
+
+def select_training_batch(max_per_class: int = 100) -> list[dict[str, Any]]:
     query = {
         "status_for_training": "ready",
         "decision.is_synthetic": {"$ne": None},

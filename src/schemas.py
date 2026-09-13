@@ -1,6 +1,8 @@
-﻿from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
 
 class TurnSegment(BaseModel):
     model_config = ConfigDict(extra="allow")
@@ -8,17 +10,19 @@ class TurnSegment(BaseModel):
     start: float
     end: float
 
+
 class DecisionPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
     is_synthetic: bool
-    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+
 
 class AnalysisPayload(BaseModel):
     model_config = ConfigDict(extra="allow")
-    turns: List[TurnSegment] = []
-    acoustics: Optional[Dict[str, Any]] = None
-    conversation: Optional[Dict[str, Any]] = None
-    asr: Optional[Dict[str, Any]] = None
+    turns: list[TurnSegment] = []
+    acoustics: dict[str, Any] | None = None
+    conversation: dict[str, Any] | None = None
+    asr: dict[str, Any] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -32,14 +36,15 @@ class AnalysisPayload(BaseModel):
                 data["asr"] = data["asr_metrics"]
         return data
 
+
 class CallAuditRecord(BaseModel):
     model_config = ConfigDict(extra="allow")
     call_id: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    decision: Optional[DecisionPayload] = None
-    analysis: Optional[AnalysisPayload] = None
-    audio_uri: Optional[str] = None
-    status_for_training: Optional[str] = "ready"
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    decision: DecisionPayload | None = None
+    analysis: AnalysisPayload | None = None
+    audio_uri: str | None = None
+    status_for_training: str | None = "ready"
 
     @model_validator(mode="before")
     @classmethod

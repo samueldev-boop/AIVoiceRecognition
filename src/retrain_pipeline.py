@@ -1,11 +1,12 @@
-﻿import logging
+import logging
 import pickle
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
+
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+
 from src.config import MODEL_DIR
 from src.curation import select_training_batch
 from src.db import calls_collection
@@ -16,6 +17,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger("altur.retrain")
+
 
 def extract_features(analysis: dict) -> list:
     acoustics = analysis.get("acoustics") or {}
@@ -32,6 +34,7 @@ def extract_features(analysis: dict) -> list:
         float(asr.get("avg_logprob") or -0.2),
     ]
 
+
 def execute_retraining():
     batch = select_training_batch(max_per_class=100)
     if not batch or len(batch) < 2:
@@ -46,8 +49,8 @@ def execute_retraining():
     pipeline.fit(X, y)
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
-    version_id = datetime.now(timezone.utc).strftime("%Y_w%U")
-    
+    version_id = datetime.now(UTC).strftime("%Y_w%U")
+
     version_path = MODEL_DIR / f"classifier_{version_id}.pkl"
     latest_path = MODEL_DIR / "classifier_latest.pkl"
 
@@ -57,12 +60,12 @@ def execute_retraining():
         pickle.dump(pipeline, f)
 
     calls_collection.update_many(
-        {"call_id": {"$in": call_ids}},
-        {"$set": {"status_for_training": f"trained_{version_id}"}}
+        {"call_id": {"$in": call_ids}}, {"$set": {"status_for_training": f"trained_{version_id}"}}
     )
 
     logger.info(f"Reentrenamiento completado con {len(call_ids)} muestras curadas.")
     logger.info(f"Artefacto guardado en: {latest_path}")
+
 
 if __name__ == "__main__":
     execute_retraining()

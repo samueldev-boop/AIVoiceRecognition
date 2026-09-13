@@ -1,8 +1,8 @@
-﻿import json
+import json
 import logging
 import signal
-import sys
 import time
+
 from src.config import AUDIT_LOG_PATH
 from src.db import calls_collection, init_db_indexes
 from src.schemas import CallAuditRecord
@@ -16,13 +16,16 @@ logger = logging.getLogger("altur.worker")
 
 running = True
 
+
 def signal_handler(signum, frame):
     global running
     logger.info("Deteniendo worker de forma segura...")
     running = False
 
+
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
+
 
 def process_record(raw_line: str):
     clean = raw_line.strip()
@@ -32,7 +35,7 @@ def process_record(raw_line: str):
         data = json.loads(clean)
         record = CallAuditRecord(**data)
         payload = {k: v for k, v in record.model_dump().items() if v is not None}
-        
+
         calls_collection.update_one(
             {"call_id": record.call_id},
             {"$set": payload},
@@ -43,6 +46,7 @@ def process_record(raw_line: str):
     except Exception as err:
         logger.warning(f"Descarte de registro invalido: {err}")
 
+
 def start_worker():
     init_db_indexes()
     AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -51,7 +55,7 @@ def start_worker():
 
     logger.info(f"Escuchando eventos en: {AUDIT_LOG_PATH}")
 
-    with open(AUDIT_LOG_PATH, "r", encoding="utf-8") as f:
+    with open(AUDIT_LOG_PATH, encoding="utf-8") as f:
         while running:
             line = f.readline()
             if not line:
@@ -60,6 +64,7 @@ def start_worker():
             process_record(line)
 
     logger.info("Worker finalizado.")
+
 
 if __name__ == "__main__":
     start_worker()

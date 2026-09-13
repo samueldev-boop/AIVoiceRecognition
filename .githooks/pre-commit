@@ -1,0 +1,49 @@
+#!/bin/sh
+# Espejo local de las reglas duras de .github/scripts/guardia.sh, para enterarse
+# antes de empujar y no despues. La version que manda es la del CI.
+
+fallo=0
+archivos=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$archivos" ] && exit 0
+
+for f in $archivos; do
+  case "$f" in
+    .env.example) : ;;
+    .env|.env.*|*/.env|*/.env.*)
+      echo "PROHIBIDO: $f" >&2
+      echo "  Un .env no entra nunca en el repositorio. Usa .env.example con valores vacios." >&2
+      fallo=1
+      ;;
+    audio/*|turns/*|manifest.csv|DATASET.md|*.wav|*.zip|analysis/*.csv|analysis/transcripts/*)
+      echo "PROHIBIDO: $f" >&2
+      echo "  Derivado del dataset: el reto prohibe redistribuirlo." >&2
+      fallo=1
+      ;;
+  esac
+done
+
+anadidas=$(git diff --cached -U0 --diff-filter=ACMR -- . ':(exclude).env.example' \
+           | grep '^+' | grep -v '^+++')
+
+secreto() {
+  if printf '%s\n' "$anadidas" | grep -qiE -- "$1"; then
+    echo "PROHIBIDO: $2" >&2
+    echo "  Quitalo del commit. Si la credencial es real, rotala." >&2
+    fallo=1
+  fi
+}
+
+secreto 'sk_[0-9a-f]{32,}'                                'credencial con formato sk_'
+secreto 'AKIA[0-9A-Z]{16}'                                'clave de acceso AWS'
+secreto '-----BEGIN [A-Z ]*PRIVATE KEY-----'              'clave privada'
+secreto '(mongodb(\+srv)?|postgres(ql)?|mysql|redis)://[^[:space:]:]+:[^[:space:]@]+@' 'URI con contrasena'
+secreto '(api[_-]?key|secret|token|passwd|password)[[:space:]]*[:=][[:space:]]*.?[A-Za-z0-9/_+-]{20,}' \
+        'valor con aspecto de credencial'
+
+if [ "$fallo" = "1" ]; then
+  echo "" >&2
+  echo "Commit bloqueado por el guardia local." >&2
+  echo "No uses --no-verify: el mismo control corre en el PR y ahi no hay atajo." >&2
+fi
+
+exit $fallo

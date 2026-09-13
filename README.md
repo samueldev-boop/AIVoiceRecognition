@@ -48,18 +48,25 @@ POST /detect
 
 | Capa | Elección | Por qué |
 | --- | --- | --- |
-| Lenguaje | **Python 3.12** | El modelo, el ASR y todo el procesado de señal son Python. Un segundo runtime duplicaría la superficie de despliegue sin aportar nada a la evaluación |
+| Lenguaje | **Python 3.14** | El modelo, el ASR y todo el procesado de señal son Python. Un segundo runtime duplicaría la superficie de despliegue sin aportar nada a la evaluación. Verificado que todas las dependencias tienen wheel en 3.14, así que el contenedor usa la misma versión que el entorno local |
 | API | **FastAPI + uvicorn** | Async, validación con pydantic y OpenAPI gratis. Sirve también el frontend estático: un solo despliegue, sin CORS |
 | Frontend | **HTML + JS + Tailwind por CDN** | Sin Node y sin build. La evaluación es sobre `/detect`, no sobre la interfaz |
 | Audio / DSP | `numpy`, `scipy`, `soundfile`, `praat-parselmouth` | Praat es el patrón oro para prosodia; el resto cubre espectro y niveles |
-| VAD | **Silero VAD vía `onnxruntime`** | Tiene modo 8 kHz nativo: no hay que remuestrear. Milisegundos por minuto de audio |
+| Intervalos | `portion` | Álgebra de turnos (unión, solape, IoU) en 27 KB. `pyannote.core` haría lo mismo arrastrando pandas |
+| VAD | **webrtcvad** | Nativo a 8 kHz con tramas de 20 ms, que es exactamente la rejilla en la que caen los tiempos de `turns/*.json`. Medido contra Silero: IoU 0.84/0.94 frente a 0.62/0.88, y mejor rendimiento aguas abajo. Procesa el dataset a 5300× tiempo real |
 | ASR | **faster-whisper (CTranslate2, int8)** | Devuelve `avg_logprob` y probabilidad por palabra, que es la señal más fuerte medida hasta ahora. No arrastra torch |
 | Modelo | **scikit-learn** (regresión logística por capas + fusión calibrada) | Con 353 llamadas el cuello de botella no es la capacidad del modelo, es la robustez de las features |
 | Despliegue | **Vultr**, 1 VM 4 vCPU / 8 GB, Docker Compose + Caddy | Sin GPU: el servicio es libre de torch y cabe en el presupuesto de latencia |
 
-**El servicio no incluye torch a propósito.** Baja la imagen de ~2.5 GB a ~600 MB y acorta el
-arranque. Cualquier modelo que requiera torch se entrena aparte (Colab) y se exporta a ONNX,
-o se queda fuera.
+**El servicio no incluye torch a propósito.** La imagen construida pesa **1.04 GB** y arranca
+hasta responder `/health` en **2.5 s** (ambos medidos); meter torch la multiplicaría sin que el
+servicio use nada de él. Cualquier modelo que lo requiera se entrena aparte (Colab) y se
+exporta a ONNX, o se queda fuera.
+
+El build es en dos etapas. La imagen final no instala ningún paquete de `apt` —las wheels
+traen sus librerías nativas (`libgomp` dentro de `ctranslate2`, `libsndfile` dentro de
+`soundfile`)— y el `gcc` que necesita compilar `webrtcvad` en Python 3.14 se queda en el
+builder.
 
 No se usa base de datos. Si hace falta auditar predicciones, es una línea JSONL en disco.
 
@@ -72,12 +79,38 @@ intervención del llamante** (~1–3 s de habla, normalmente dentro de los prime
 llamada). Con la primera *palabra* literal no alcanza: no se puede estimar piso de ruido ni
 espectro con 0.3 s.
 
-| Etapa | Qué usa | Coste | Salida |
-| --- | --- | --- | --- |
-| 0 | Formato, 2 canales, ≥1 s de habla en ch0 | <10 ms | rechaza o degrada |
-| 1 | 1ª intervención + primeros 20 s: canal, prosodia, latencia de entrada | ~0.3 s | si la probabilidad calibrada sale de [0.15, 0.85], **responde** |
-| 2 | ASR sobre ch0 y ch1 recortados | 5–10 s | confianza por canal, razón entre canales, artefactos de lectura |
-| 3 | Conducta con la llamada completa | ~0.5 s | fusión final |
+| Etapa | Qué usa | Audio | CV por hablante | Peor caso de estrés |
+| --- | --- | --- | --- | --- |
+| 0 | Formato, 2 canales, ≥1 s de habla en ch0 | — | rechaza o degrada | — |
+| 1 | 1ª intervención del llamante | 10.5 s de media | **0.9768** | **0.9483** |
+| 2 | Primeros 20 s | 20 s | 0.9739 | 0.9287 |
+| 3 | Llamada completa | 148 s de media | 0.9682 | 0.8582 |
+
+Se sale en la primera etapa cuya probabilidad calibrada queda fuera de la banda
+**[0.10, 0.90]**; si se escala, se fusiona por media de logits y, cuando dos presupuestos se
+contradicen, la confianza se topa en 0.65 en lugar de promediarse sin más.
+
+**El orden no es casual: la primera intervención es el presupuesto más fuerte y el más
+robusto al ataque.** Agrupando la validación por hablante, mirar más audio empeora la
+generalización, porque el modelo se apoya en rasgos de la persona y de su línea que no
+transfieren a hablantes nuevos. El juicio final usa voces que no están en ningún split.
+
+Lo que la cascada compra es **latencia, no precisión**: sobre las predicciones fuera de
+muestra de train, la cascada comete los mismos 24 errores que fusionar los tres presupuestos
+siempre, pero contesta el 79 % de las llamadas con una etapa.
+
+Medido contra el endpoint real, las 71 llamadas de val:
+
+| | |
+| --- | --- |
+| Latencia | p50 **0.27 s** · p95 **2.47 s** · máx 3.40 s |
+| Por encima de 12 s / 30 s | 0 / 0 |
+| Etapa que decidió | 59 en la 1ª (0.27 s) · 4 en los 20 s · 8 con la llamada completa (2.45 s) |
+| Resultado | AUC 0.9921 · acierto 97.2 % · 1 FP · 1 FN · Brier 0.0237 |
+
+Y el subconjunto que sobrevive a un cambio de equipo —conducta, prosodia y razones entre
+canales— es el que domina en la etapa 1: conducta 0.9472 y razones 0.9270, frente al silencio
+de la sala, que solo manda con la llamada completa (0.9862). El atajo, visto de frente.
 
 Watchdog de 25 s: si una etapa se agota, se responde con lo que ya votó. `confidence` refleja
 **qué etapas alcanzaron a votar**; una sola capa nunca devuelve más de 0.9.
@@ -99,32 +132,85 @@ reglas que sólo pueden **bajar** la sospecha, nunca subirla.
 ## Estructura
 
 ```
-app/         servicio: API, VAD, features, scoring      (por construir, ver #2)
+app/         servicio
+  main.py      FastAPI: /health, /detect y los estáticos
+  audio.py     decodifica base64 y valida el clip (etapa 0)
+  vad.py       actividad de voz por canal con webrtcvad
+  intervalos.py  unión, solape e IoU de turnos
+  features.py  extractor único: 139 features en 6 grupos, con presupuesto de audio
+  model.py     carga del artefacto y scoring     -> #5
+  schemas.py   contrato de entrada y salida
+  config.py    variables de entorno
 model/       artefactos entrenados
 scripts/     entrenamiento y evaluación (no se importan desde app/)
 static/      frontend
+tests/       criterio de aceptación automatizado
+deploy/      configuración de la instancia (cloud-init) y guía de despliegue
 analysis/    exploración: sondas de features y banco de estrés
 docs/        informe de exploración
 ```
 
-`analysis/` es exploratorio y se conserva como registro de lo medido: `turns_probe` y
-`audio_probe` extraen features y miden su poder discriminativo, `baseline` y `ablation`
-separan señal robusta de atajos, `stress_test` ataca el modelo con audio y tiempos
-modificados, y `transcribe` / `asr_confidence` cubren la capa de texto.
+`model.py` carga el artefacto de #5 y permite puntuar audio con `puntuar_audio()` o muestras
+extraídas por `app/interventions.py`. La conexión del modelo con la cascada HTTP de
+`/detect` corresponde a #6; el endpoint informa 503 mientras esa cascada no esté integrada.
+
+`app/features.py` y `app/interventions.py` son la ruta compartida de extracción para
+entrenamiento e inferencia. `analysis/baseline.py` y `analysis/stress_test.py` invocan el
+entrenamiento sklearn; `analysis/ablation.py` consulta los resultados fuera de muestra.
+
+Las sondas `turns_probe` / `audio_probe` conservan la exploración histórica;
+`transcribe` / `asr_confidence` cubren la capa de texto.
+
+## Entrenamiento y reporte del issue #5
+
+El modelo entrena cuatro regresiones por intervención del llamante. Agrega sus scores por
+llamada y añade dos capas de conducta y razones entre canales; una regresión de fusión y
+calibración Platt producen la probabilidad final. Hay modelos para primera intervención,
+20 segundos y llamada completa. La evaluación usa cinco folds agrupados por llamada, con
+fusión y calibración fuera de muestra dentro de cada fold.
+
+```bash
+pip install -r requirements-analysis.txt
+OPENBLAS_NUM_THREADS=1 python -m scripts.train_issue5
+python -m scripts.report_issue5
+python -m analysis.ablation
+```
+
+Se generan `model/model.joblib` y `analysis/issue5/`, con el informe HTML/PDF/Markdown,
+mapas de calor Pearson y Spearman, distribuciones, grafo de correlaciones, nulos, atípicos,
+ROC, calibración, matrices de confusión a 0.5/0.7 y métricas bajo estrés. El modelo se elige
+con `train` y estrés; la configuración se congela antes de informar `val`.
+
+Los artefactos derivados quedan locales y están ignorados por git. El dataset original
+se conserva intacto. Detalles del formato, comandos y verificación:
+[docs/issue5-modelo.md](docs/issue5-modelo.md).
 
 ## Puesta en marcha
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt          # ver #2
-# colocar el dataset: descomprimir el zip oficial en la raíz -> audio/
+pip install -r requirements-dev.txt
 uvicorn app.main:app --reload            # http://localhost:8000
 ```
 
+Comprobar que está bien: `pytest -q` y `ruff check app tests`.
+Para trabajar con el dataset, descomprimir el zip oficial en la raíz para que el audio
+quede en `audio/`.
+
+Con Docker, igual que en la instancia:
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+curl -s localhost/health
+```
+
+Configuración de la instancia y despliegue: **[deploy/README.md](deploy/README.md)**.
+
 ## Contribuir
 
-Ramas, prefijos de commit y flujo de PR: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
-Instala los hooks antes del primer commit:
+Ramas, prefijos de commit, flujo de PR y reglas sobre configuración y secretos:
+**[CONTRIBUTING.md](CONTRIBUTING.md)**. Instala los hooks antes del primer commit:
 
 ```bash
 git config core.hooksPath .githooks

@@ -70,7 +70,8 @@ def main():
                 })
             rec["channels"][who] = out
             os.remove(wav)
-            print(f"  {i} ch{ch} ({who}): {len(out)} segmentos en {time.time()-t0:.0f}s", flush=True)
+            print(f"  {i} ch{ch} ({who}): {len(out)} segmentos en {time.time()-t0:.0f}s",
+                  flush=True)
         json.dump(rec, open(dst, "w"), ensure_ascii=False, indent=1)
         print(" ->", dst, flush=True)
 

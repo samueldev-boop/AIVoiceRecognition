@@ -1,0 +1,29 @@
+# Dependencias del servicio. Versiones verificadas instalando en Python 3.14.
+# Deliberadamente SIN torch: la imagen medida pesa 1.02 GB y arranca en 2.5 s.
+# Lo que necesite torch se entrena aparte (Colab) y se exporta a ONNX.
+
+# --- API ---
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.5
+
+# --- audio y senal ---
+numpy==2.5.3
+scipy==1.18.1
+soundfile==0.14.0
+praat-parselmouth==0.4.7
+
+# --- VAD (#3) ---
+# webrtcvad: nativo a 8 kHz con tramas de 20 ms, que es la rejilla del dataset. Extension
+# en C con el modelo dentro: ni archivo aparte ni onnxruntime.
+# portion: algebra de intervalos de los turnos. 27 KB, frente a los ~60 MB de pandas que
+# arrastra pyannote.core para hacer lo mismo.
+webrtcvad-wheels==2.0.14
+portion==2.6.2
+
+# --- ASR (ver #6): CTranslate2, no arrastra torch ---
+faster-whisper==1.2.1
+
+# --- modelo (ver #5) ---
+scikit-learn==1.9.1
+joblib==1.6.0

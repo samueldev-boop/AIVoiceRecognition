@@ -1,0 +1,18 @@
+# DOMINIO lo garantiza docker-compose.yml: vale ":80" si no se define, y entonces Caddy
+# escucha en HTTP por ese puerto, suficiente para probar con la IP de la instancia. Con un
+# nombre de dominio, Caddy pide y renueva el certificado solo.
+#
+# Ojo con la tentacion de poner el valor por defecto aqui con {$DOMINIO::80}: Caddy solo usa
+# el default cuando la variable esta SIN DEFINIR, y compose la define siempre. Con la
+# variable vacia esta linea se queda en "{" y Caddy la interpreta como bloque de opciones
+# globales; falla con "unrecognized global option: encode". Medido, no supuesto.
+{$DOMINIO} {
+	encode zstd gzip
+
+	# Medido: una llamada de 170 s son 7 MB de base64. 25 MB deja margen de sobra.
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy api:8000
+}

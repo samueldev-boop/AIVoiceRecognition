@@ -9,6 +9,11 @@ DATASET.md
 analysis/*.csv
 analysis/*.txt
 analysis/transcripts/
+analysis/issue5/
+speaker_groups.csv
+
+# El artefacto entrenado SI se versiona: pesa 50 KB, el Dockerfile copia model/ y en
+# la VM el despliegue es clonar y construir. Sin el, /detect responderia 503 en produccion.
 
 # --- entorno y artefactos locales ---
 .venv/

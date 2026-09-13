@@ -133,8 +133,9 @@ reglas que sólo pueden **bajar** la sospecha, nunca subirla.
 
 ```
 app/         servicio
-  main.py      FastAPI: /health, /detect y los estáticos
+  main.py      FastAPI: /health, /detect, /transcribe y los estáticos
   audio.py     decodifica base64 y valida el clip (etapa 0)
+  transcripcion.py  transcripción por canal con ElevenLabs para la interfaz; /detect no la usa
   vad.py       actividad de voz por canal con webrtcvad
   intervalos.py  unión, solape e IoU de turnos
   features.py  extractor único: 139 features en 6 grupos, con presupuesto de audio
@@ -143,8 +144,8 @@ app/         servicio
   config.py    variables de entorno
 model/       artefactos entrenados
 scripts/     entrenamiento y evaluación (no se importan desde app/)
-static/      interfaz: sube un WAV y ve el veredicto, los scores por capa
-             y los turnos del VAD sobre la forma de onda
+static/      interfaz: sube un WAV y ve el veredicto, los scores por capa,
+             los turnos del VAD sobre la forma de onda y la transcripción por canal
 tests/       criterio de aceptación automatizado
 deploy/      configuración de la instancia (cloud-init) y guía de despliegue
 analysis/    exploración: sondas de features y banco de estrés
@@ -197,6 +198,11 @@ uvicorn app.main:app --reload            # http://localhost:8000
 Comprobar que está bien: `pytest -q` y `ruff check app tests`.
 Para trabajar con el dataset, descomprimir el zip oficial en la raíz para que el audio
 quede en `audio/`.
+
+La transcripción de la interfaz es opcional: con `ELEVENLABS_API_KEY` en `.env` (en local,
+`uvicorn app.main:app --reload --env-file .env`) la página la muestra debajo de los turnos;
+sin clave, `/transcribe` responde 503 y la página muestra solo el veredicto. `/detect` no
+cambia en ningún caso.
 
 Con Docker, igual que en la instancia:
 

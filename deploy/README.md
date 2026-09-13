@@ -52,15 +52,45 @@ de Docker.
 
 ## Primer despliegue
 
+Un solo comando, idempotente: instala Docker si falta, pone el repositorio en la rama pedida,
+crea el `.env`, levanta el compose y verifica. Sirve igual para el primer despliegue y para
+los siguientes.
+
 ```bash
-ssh despliegue@<ip>
-cd /opt/servicio
-git checkout stage
-cp .env.example .env          # rellenar lo necesario
-chmod 600 .env                # solo el usuario de despliegue puede leerlo
-docker compose up -d --build
-curl -s localhost/health
+ssh root@<ip>
+curl -fsSL https://raw.githubusercontent.com/samueldev-boop/AIVoiceRecognition/stage/deploy/arrancar.sh -o arrancar.sh
+less arrancar.sh          # merece leerlo antes de darle sudo
+sudo sh arrancar.sh
 ```
+
+O a mano, que es lo que hace el script:
+
+```bash
+sudo apt-get update && sudo apt-get install -y docker.io docker-compose-v2 git
+sudo git clone -b stage https://github.com/samueldev-boop/AIVoiceRecognition.git /opt/servicio
+cd /opt/servicio
+sudo cp .env.example .env && sudo chmod 600 .env
+sudo docker compose up -d --build
+sudo sh deploy/verificar.sh http://localhost
+```
+
+`docker compose up -d --build` construye la imagen en la propia instancia. En 4 vCPU ronda
+los 3–5 minutos la primera vez: se compila `webrtcvad` en la etapa de build e se instalan
+~1 GB de wheels. Los despliegues siguientes reutilizan capas y tardan segundos.
+
+El `.env` **debe existir** o compose falla: `env_file` no es opcional. Y `DOMINIO` nunca debe
+quedar vacío; `docker-compose.yml` le pone `:80` por defecto y el `Caddyfile` explica por qué
+importa.
+
+## Comprobar que quedó bien
+
+```bash
+./deploy/verificar.sh http://<ip>                        # servicio, modelo, contrato
+./deploy/verificar.sh http://<ip> audio/una_llamada.wav  # una petición real a /detect
+```
+
+Solo necesita `curl` y `base64`. Comprueba `/health`, que el artefacto esté cargado, el
+frontend, `/docs`, que un cuerpo inválido dé 422 y no 500, y opcionalmente una llamada real.
 
 El `.env` vive únicamente en la instancia, nunca en el repositorio. Los contenedores no montan
 el directorio del proyecto —sólo `Caddyfile` en modo lectura— así que el servicio recibe las
@@ -84,6 +114,20 @@ echo "DOMINIO=detect.midominio.com" >> .env && docker compose up -d
 
 Sin dominio propio sirve un hostname de DNS comodín, que sí admite certificado real —
 por ejemplo `DOMINIO=203-0-113-7.sslip.io` para la IP `203.0.113.7`.
+
+## Qué esperar de latencia
+
+Medido contra el endpoint real sobre las 71 llamadas de validación, en esta máquina:
+
+| | |
+| --- | --- |
+| p50 | 0.27 s |
+| p95 | 2.47 s |
+| máximo | 3.40 s |
+| A través de Caddy, llamada de 170 s (7 MB de base64) | 0.38 s |
+
+El presupuesto del reto son 30 s, así que sobra margen. En una instancia con vCPU compartido
+esperá más variación: es el motivo para preferir vCPU dedicado.
 
 ## Antes de la demostración
 

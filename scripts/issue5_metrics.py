@@ -26,10 +26,10 @@ def ece(y, p, bins=10):
     )
 
 
-def metrics(y, p):
+def metrics(y, p, cutoffs=(0.5, 0.7)):
     y, p = np.asarray(y), np.asarray(p)
     thresholds = {}
-    for threshold in (0.5, 0.7):
+    for threshold in cutoffs:
         pred = p >= threshold
         matrix = confusion_matrix(y, pred, labels=[0, 1])
         tn, fp, fn, tp = matrix.ravel()

@@ -25,3 +25,15 @@ jobs:
       # Solo comprueba que la imagen se construye. No se publica en ningun registro:
       # el despliegue construye en la propia instancia.
       - run: docker build -t aivoicerecognition:ci .
+
+      # El Caddyfile se valida aparte porque un error suyo no rompe el build de la imagen:
+      # se descubrio con caddy en bucle de reinicio, no en CI. DOMINIO se pasa con el mismo
+      # valor por defecto que pone docker-compose.yml.
+      - name: Caddyfile valido
+        run: |
+          docker run --rm -e DOMINIO=:80 \
+            -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+          docker run --rm -e DOMINIO=detect.ejemplo.com \
+            -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile

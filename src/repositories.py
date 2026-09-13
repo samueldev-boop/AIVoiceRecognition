@@ -26,7 +26,13 @@ class MongoAuditRepository:
         self.collection = collection
 
     def ensure_indexes(self) -> None:
-        self.collection.create_index([("event_id", ASCENDING)], unique=True)
+        # Parcial: la coleccion puede tener documentos del auditor anterior sin event_id, y
+        # un indice unico total los trataria a todos como event_id null repetido.
+        self.collection.create_index(
+            [("event_id", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"event_id": {"$exists": True}},
+        )
         self.collection.create_index([("call_id", ASCENDING)])
         self.collection.create_index(
             [("status_for_training", ASCENDING), ("timestamp", DESCENDING)]
@@ -60,7 +66,9 @@ class MongoAuditRepository:
     def training_records(self, since: datetime | None = None, until: datetime | None = None):
         # Include unlabelled records: they can connect identities across labelled samples.
         # Readiness filtering belongs to dataset preparation, after grouping.
-        query = {}
+        # Solo documentos de este contrato: los del auditor anterior no validan y romperian
+        # la exportacion. Se migran aparte con src.migrate_audit si hacen falta.
+        query = {"schema_version": 1}
         if since is not None or until is not None:
             query["timestamp"] = {}
             if since is not None:

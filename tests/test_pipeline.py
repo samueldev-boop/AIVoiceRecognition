@@ -369,6 +369,19 @@ def test_config_legacy_names_and_secret_repr(monkeypatch):
     assert Settings.from_env().mongodb_uri.get_secret_value() == "preferred-placeholder"
 
 
+def test_config_accepts_team_env_names(monkeypatch):
+    for name in ("MONGODB_DATABASE", "DATABASE_NAME", "MONGODB_COLLECTION", "COLLECTION_NAME"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MONGO_DB", "altur_defense")
+    monkeypatch.setenv("COLLECTION_CALLS", "calls")
+    monkeypatch.setenv("AUDIT_LOG_PATH", "data/audit.jsonl")
+    settings = Settings.from_env()
+    assert (settings.mongodb_database, settings.mongodb_collection) == ("altur_defense", "calls")
+    assert str(settings.legacy_audit_log) == "data/audit.jsonl"
+    monkeypatch.setenv("MONGODB_COLLECTION", "calls_v1")
+    assert Settings.from_env().mongodb_collection == "calls_v1"
+
+
 def test_agent_only_speech_is_excluded():
     raw = document()
     raw["analysis"]["turns"][0]["channel"] = 1

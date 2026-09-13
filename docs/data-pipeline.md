@@ -87,10 +87,17 @@ Para API local usar `uvicorn app.main:app --env-file .env`; Compose inyecta el e
 | `ENVIRONMENT`, `LOG_LEVEL` | `development`, `INFO` |
 | `MODEL_VERSION`, `PIPELINE_VERSION` | `unknown`, `audit-v1`; la API pasa la version cargada |
 
-Se aceptan `MONGO_URI`, `DATABASE_NAME` y `COLLECTION_NAME` como alias de transicion.
-Las variables nuevas prevalecen si ambas existen, incluso cuando estan vacias.
-`AUDIT_LOG_PATH` deja de ser el destino de la API: usar la bandeja y migrar JSONL
-explicitamente. No se lee ni modifica automaticamente una base de datos antigua.
+El `.env` del equipo usa `MONGO_URI`, `MONGO_DB` y `COLLECTION_CALLS`; tambien se aceptan
+`DATABASE_NAME` y `COLLECTION_NAME`. Las variables `MONGODB_*` prevalecen si ambas existen,
+incluso cuando estan vacias.
+
+`AUDIT_LOG_PATH` deja de ser el destino de la API: la API publica en la bandeja
+(`AUDIT_SPOOL_DIR`) y `python -m src.migrate_audit` lee ese JSONL heredado cuando se ejecuta
+sin argumentos.
+
+La coleccion puede contener documentos del auditor anterior. No se modifican: el indice unico
+de `event_id` es parcial (solo documentos con `event_id`) y la exportacion de entrenamiento
+lee unicamente `schema_version: 1`.
 
 ```bash
 python -m src.worker                 # bucle de polling

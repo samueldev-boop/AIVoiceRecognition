@@ -15,6 +15,8 @@ class Settings(BaseModel):
     mongodb_collection: str = "calls_v1"
     mongodb_timeout_ms: int = Field(default=5000, ge=100, le=120000)
     spool_dir: Path = Path("data/raw")
+    # JSONL del auditor anterior: solo lo lee la migracion explicita, la API ya no escribe ahi.
+    legacy_audit_log: Path = Path("data/audit.jsonl")
     processed_dir: Path = Path("data/processed")
     training_dir: Path = Path("data/training")
     model_dir: Path = Path("model/candidates")
@@ -31,10 +33,12 @@ class Settings(BaseModel):
     @classmethod
     def from_env(cls) -> Settings:
         aliases = {
+            # Los nombres MONGO_* y COLLECTION_CALLS son los del .env del equipo.
             "mongodb_uri": ("MONGODB_URI", "MONGO_URI"),
-            "mongodb_database": ("MONGODB_DATABASE", "DATABASE_NAME"),
-            "mongodb_collection": ("MONGODB_COLLECTION", "COLLECTION_NAME"),
+            "mongodb_database": ("MONGODB_DATABASE", "MONGO_DB", "DATABASE_NAME"),
+            "mongodb_collection": ("MONGODB_COLLECTION", "COLLECTION_CALLS", "COLLECTION_NAME"),
             "spool_dir": ("AUDIT_SPOOL_DIR",),
+            "legacy_audit_log": ("AUDIT_LOG_PATH",),
             "poll_seconds": ("WORKER_POLL_SECONDS",),
             "retry_attempts": ("WORKER_RETRY_ATTEMPTS",),
             "retry_seconds": ("WORKER_RETRY_SECONDS",),

@@ -65,11 +65,14 @@ def main() -> None:
     from dotenv import load_dotenv
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("jsonl", type=Path)
+    parser.add_argument(
+        "jsonl", type=Path, nargs="?", help="JSONL heredado; por defecto AUDIT_LOG_PATH"
+    )
     args = parser.parse_args()
     load_dotenv()
-    logging.basicConfig(level=Settings.from_env().log_level)
-    published, rejected = migrate(args.jsonl, Settings.from_env())
+    settings = Settings.from_env()
+    logging.basicConfig(level=settings.log_level)
+    published, rejected = migrate(args.jsonl or settings.legacy_audit_log, settings)
     logging.info("event=migration_completed published=%d rejected=%d", published, rejected)
     if rejected:
         raise SystemExit(1)

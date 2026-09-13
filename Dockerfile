@@ -1,4 +1,4 @@
-# Python 3.14 verificado: todas las dependencias del servicio tienen wheel en 3.14 menos
+﻿# Python 3.14 verificado: todas las dependencias del servicio tienen wheel en 3.14 menos
 # webrtcvad-wheels, que solo publica hasta cp313 y hay que compilar desde el sdist. Por eso
 # el build es en dos etapas: gcc vive en el builder y no llega a la imagen final, y asi el
 # contenedor mantiene la misma version de Python que el entorno de desarrollo.
@@ -38,8 +38,8 @@ COPY static/ static/
 COPY model/ model/
 
 RUN useradd --create-home --uid 10001 servicio \
-    && mkdir -p /models \
-    && chown -R servicio:servicio /models /srv
+    && mkdir -p /models /srv/data \
+    && chown -R servicio:servicio /models /srv /srv/data
 USER servicio
 
 EXPOSE 8000

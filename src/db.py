@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 
 from pymongo import ASCENDING, DESCENDING, MongoClient
 from pymongo.errors import PyMongoError
@@ -8,11 +8,10 @@ from src.config import COLLECTION_NAME, DATABASE_NAME, MONGO_URI
 logger = logging.getLogger("altur.db")
 
 _client: MongoClient | None = None
-_indexes_initialized: bool = False
 
 
 def get_mongo_client() -> MongoClient:
-    """Devuelve un cliente reutilizable de MongoDB con inicializacion perezosa."""
+    """Devuelve el cliente de conexion a Atlas."""
     global _client
     if _client is None:
         try:
@@ -26,18 +25,20 @@ def get_mongo_client() -> MongoClient:
 
 
 def get_calls_collection():
-    """Entrega la coleccion e inicializa indices automaticamente una sola vez."""
-    global _indexes_initialized
+    """Retorna la coleccion configurada en Atlas."""
     client = get_mongo_client()
-    db = client[DATABASE_NAME]
-    collection = db[COLLECTION_NAME]
+    return client[DATABASE_NAME][COLLECTION_NAME]
 
-    if not _indexes_initialized:
-        try:
-            collection.create_index([("call_id", ASCENDING)], unique=True)
-            collection.create_index([("status_for_training", ASCENDING), ("timestamp", DESCENDING)])
-            _indexes_initialized = True
-        except PyMongoError as e:
-            logger.warning("No se pudieron verificar los indices en Atlas: %s", e)
 
-    return collection
+def init_db_indexes() -> None:
+    """Crea los indices unicos y compuestos en la coleccion."""
+    try:
+        col = get_calls_collection()
+        col.create_index([("call_id", ASCENDING)], unique=True)
+        col.create_index([("status_for_training", ASCENDING), ("timestamp", DESCENDING)])
+    except PyMongoError as e:
+        logger.warning("No se pudieron verificar los indices en Atlas: %s", e)
+
+
+# Exportaciones directas requeridas por worker y scripts auxiliares
+calls_collection = get_calls_collection()

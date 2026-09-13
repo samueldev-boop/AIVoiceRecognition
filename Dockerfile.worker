@@ -1,0 +1,18 @@
+﻿FROM python:3.12-slim
+
+WORKDIR /srv
+
+# Dependencias de base de datos para ingestion hacia MongoDB Atlas
+RUN pip install --no-cache-dir pymongo python-dotenv
+
+# Codigo necesario para el worker
+COPY src/ src/
+
+# Usuario no privilegiado y carpeta de bufer de logs
+RUN useradd --create-home --uid 10002 worker \
+    && mkdir -p /srv/data \
+    && chown -R worker:worker /srv
+
+USER worker
+
+CMD ["python", "-m", "src.worker"]

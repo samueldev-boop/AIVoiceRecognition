@@ -58,8 +58,23 @@ def test_detect_acepta_formato_del_juez_y_formato_anterior(monkeypatch):
                 },
             )
             assert response.status_code == 200
-            assert response.json()["is_synthetic"] is False
-            assert response.json()["confidence"] == 0.87
+            assert response.json() == {"is_synthetic": False, "confidence": 0.87}
+
+        detailed = client.post("/detect/details", json={"audio_base64": encoded})
+        assert detailed.status_code == 200
+        assert detailed.json()["is_synthetic"] is False
+        assert detailed.json()["confidence"] == 0.87
+        assert detailed.json()["probability_synthetic"] == 0.13
+        assert detailed.json()["stage"] == "first_turn"
+
+
+def test_openapi_documenta_solo_los_campos_del_jurado():
+    schema = app.openapi()
+    response = schema["paths"]["/detect"]["post"]["responses"]["200"]["content"]
+    name = response["application/json"]["schema"]["$ref"].rsplit("/", 1)[1]
+    model = schema["components"]["schemas"][name]
+    assert set(model["properties"]) == {"is_synthetic", "confidence"}
+    assert set(model["required"]) == {"is_synthetic", "confidence"}
 
 
 def test_detect_sin_modelo_responde_503(tmp_path, monkeypatch):

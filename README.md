@@ -40,7 +40,10 @@ POST /detect
   -> {"is_synthetic": true, "confidence": 0.87}
 ```
 
-`is_synthetic` es obligatorio. `confidence` es opcional y puntúa la calibración.
+`POST /detect` devuelve exclusivamente `is_synthetic` (booleano) y `confidence`
+(número entre 0 y 1). Aunque el reto considera opcional la confianza, el servicio
+siempre la incluye. La interfaz solicita `POST /detect/details`, con la misma entrada
+y la misma inferencia, para recibir además los campos de diagnóstico.
 
 ---
 
@@ -224,7 +227,7 @@ dataset en la raíz:
 python scripts/eval_endpoint.py --split val --url http://localhost:8000
 ```
 
-Manda las llamadas del split a `/detect` de una en una e imprime, en una pantalla: acierto,
+Manda las llamadas del split a `/detect/details` de una en una e imprime, en una pantalla: acierto,
 FPR (humanos acusados) y FNR; AUC, Brier y ECE; latencia p50/p95; qué etapa decidió cada
 llamada, y el coste en FP y FN de los umbrales 0.3, 0.5, 0.7 y 0.9. La calibración se mide
 dos veces: con lo que ve el jurado (`is_synthetic` + `confidence`) y con

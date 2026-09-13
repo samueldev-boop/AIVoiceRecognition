@@ -1,4 +1,4 @@
-"""Evalua POST /detect de punta a punta: acierto, FPR, latencia y calibracion.
+"""Evalua POST /detect/details de punta a punta: acierto, FPR, latencia y calibracion.
 
 Recorre un split del manifiesto, manda cada WAV en base64 al endpoint, guarda la respuesta
 y la latencia de cada llamada e imprime un informe que cabe en una pantalla:
@@ -56,9 +56,9 @@ CAMPOS = ("anon_id", "label", "status", "latencia_s", "is_synthetic", "confidenc
 
 
 def detectar(url: str, wav: Path, timeout: float) -> dict:
-    """Un POST /detect. La latencia cubre la peticion y la respuesta, no el base64."""
+    """Un POST con diagnosticos. La latencia cubre HTTP, no el base64."""
     cuerpo = json.dumps({"audio": base64.b64encode(wav.read_bytes()).decode()}).encode()
-    peticion = urllib.request.Request(f"{url}/detect", data=cuerpo,
+    peticion = urllib.request.Request(f"{url}/detect/details", data=cuerpo,
                                       headers={"content-type": "application/json"})
     fila = {"status": 0, "error": "", "respuesta": None}
     t0 = time.perf_counter()
@@ -278,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     if progreso:
         print("\r" + " " * 40 + "\r", end="", file=sys.stderr)
 
-    cabecera = (f"POST {url}/detect   split {args.split}\n"
+    cabecera = (f"POST {url}/detect/details   split {args.split}\n"
                 f"servicio {salud.get('version')}, modelo {salud.get('model_version')}")
     print(informe(resumen(filas), cabecera))
     if args.split == "train":

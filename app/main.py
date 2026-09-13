@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__, audio, cascade, config, model, transcripcion, vad
 from app.audit import log_detection_event, motivos_de_incertidumbre
 from app.schemas import (
+    DetectDiagnosticsResponse,
     DetectRequest,
     DetectResponse,
     HealthResponse,
@@ -77,7 +78,10 @@ def health() -> HealthResponse:
 
 
 @app.post("/detect", response_model=DetectResponse)
-async def detect(req: DetectRequest) -> DetectResponse:
+@app.post("/detect/details", response_model=DetectDiagnosticsResponse)
+async def detect(req: DetectRequest) -> DetectDiagnosticsResponse:
+    # Ambas rutas comparten inferencia y auditoria. El response_model de /detect
+    # filtra la salida a los dos campos del jurado; /detect/details sirve la interfaz.
     t0 = time.perf_counter()
 
     # Etapa 0: validacion de entrada.
@@ -128,7 +132,7 @@ async def detect(req: DetectRequest) -> DetectResponse:
     # Solo las llamadas inciertas dejan una referencia para el ciclo de reentrenamiento.
     motivos = motivos_de_incertidumbre(resultado)
     if not motivos:
-        return DetectResponse(**resultado)
+        return DetectDiagnosticsResponse(**resultado)
 
     # La referencia se publica fuera del event loop antes de responder. Si falla, por
     # defecto se responde igual: la deteccion es el contrato y la auditoria es un extra.
@@ -162,7 +166,7 @@ async def detect(req: DetectRequest) -> DetectResponse:
                 status_code=503, detail="No se pudo conservar la auditoria"
             ) from None
 
-    return DetectResponse(**resultado)
+    return DetectDiagnosticsResponse(**resultado)
 
 
 @app.post("/transcribe", response_model=TranscribeResponse)

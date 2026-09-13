@@ -48,6 +48,7 @@ def eventos(tmp_path):
 def test_an_uncertain_call_leaves_a_reference(client, tmp_path):
     response = client.post("/detect", json={"audio_base64": wav_base64()})
     assert response.status_code == 200
+    assert set(response.json()) == {"is_synthetic", "confidence"}
     [record] = eventos(tmp_path)
     assert record["decision"]["probability_synthetic"] == 0.45
     assert record["analysis"]["uncertainty_reasons"] == ["probabilidad_ambigua"]

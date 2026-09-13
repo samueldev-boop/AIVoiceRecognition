@@ -1,7 +1,7 @@
 """La interfaz la sirve el mismo FastAPI que el endpoint: no hay build ni segundo despliegue.
 
 Lo que se fija aqui es que los tres archivos se sirven con el tipo correcto y que la
-respuesta de /detect trae lo que la pagina necesita para dibujar.
+respuesta de /detect/details trae lo que la pagina necesita para dibujar.
 """
 
 import re
@@ -79,7 +79,9 @@ def test_detect_devuelve_lo_que_la_pagina_dibuja():
     with TestClient(app) as c:
         if not c.get("/health").json()["model_loaded"]:
             pytest.skip("sin artefacto entrenado")
-        cuerpo = c.post("/detect", json={"audio": wav_base64()}).json()
+        js = (ESTATICOS / "app.js").read_text()
+        assert 'fetch("detect/details"' in js
+        cuerpo = c.post("/detect/details", json={"audio": wav_base64()}).json()
         for campo in ("is_synthetic", "confidence", "stage", "ms", "layer_scores",
                       "budget_scores", "audio_used_s", "turns"):
             assert campo in cuerpo, f"falta {campo} en la respuesta"

@@ -167,13 +167,13 @@ def wav_base64(segundos=12.0, con_habla=True):
 
 
 def test_endpoint_responde_con_el_artefacto_real():
-    """Integracion: /detect devuelve 200 y el esquema completo, sin adivinar nada."""
+    """Integracion: la ruta de diagnosticos devuelve el esquema completo."""
     from app.main import app
 
     with TestClient(app) as c:
         if not c.get("/health").json()["model_loaded"]:
             pytest.skip("sin artefacto entrenado en model/model.joblib")
-        r = c.post("/detect", json={"audio": wav_base64()})
+        r = c.post("/detect/details", json={"audio": wav_base64()})
         assert r.status_code == 200, r.text
         cuerpo = r.json()
         assert isinstance(cuerpo["is_synthetic"], bool)
@@ -181,3 +181,46 @@ def test_endpoint_responde_con_el_artefacto_real():
         assert cuerpo["stage"]
         assert cuerpo["ms"] > 0
         assert cuerpo["ms"] < 1000 * config.DETECT_TIMEOUT_S
+
+
+@pytest.mark.parametrize("ruta", ["/detect", "/detect/details"])
+def test_modelo_real_responde_aunque_fallen_los_servicios_auxiliares(ruta, monkeypatch):
+    from unittest.mock import AsyncMock, Mock
+
+    from fastapi.testclient import TestClient
+
+    from app import main, transcripcion
+    from src import db
+
+    mongo = Mock(side_effect=ConnectionError("MongoDB no disponible"))
+    transcribir = AsyncMock(side_effect=transcripcion.TranscripcionFallida("sin servicio"))
+    auditoria = Mock(side_effect=OSError("auditoria no disponible"))
+    monkeypatch.setattr(db, "MongoClient", mongo)
+    monkeypatch.setattr(transcripcion, "transcribir", transcribir)
+    monkeypatch.setattr(main, "log_detection_event", auditoria)
+    monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "clave-de-prueba")
+    monkeypatch.setattr(config, "AUDIT_REQUIRED", False)
+    monkeypatch.setattr(config, "AUDIT_BANDA", (0.0, 1.0))
+
+    with TestClient(main.app) as client:
+        modelo = main.ESTADO["modelo"]
+        assert modelo is not None, "esta prueba requiere el artefacto real"
+        predecir = Mock(wraps=modelo.predecir)
+        monkeypatch.setattr(modelo, "predecir", predecir)
+        payload = {"audio": wav_base64()}
+
+        assert client.post("/transcribe", json=payload).status_code == 502
+        transcribir.reset_mock()
+        response = client.post(ruta, json=payload)
+
+        assert response.status_code == 200, response.text
+        assert predecir.call_count >= 1, "la respuesta debe pasar por el modelo real"
+        assert isinstance(response.json()["is_synthetic"], bool)
+        assert 0.0 <= response.json()["confidence"] <= 1.0
+        if ruta == "/detect":
+            assert set(response.json()) == {"is_synthetic", "confidence"}
+        else:
+            assert response.json()["stage"] in {"first_turn", "20s", "full"}
+        auditoria.assert_called_once()
+        transcribir.assert_not_called()
+        mongo.assert_not_called()

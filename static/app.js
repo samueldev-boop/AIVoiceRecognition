@@ -1,6 +1,6 @@
 "use strict";
 
-// Interfaz sobre POST /detect y, para los WAV, POST /transcribe. La sirve el mismo FastAPI
+// Interfaz sobre POST /detect/details y, para los WAV, POST /transcribe. La sirve el mismo FastAPI
 // que el endpoint, asi que no hay CORS ni un segundo despliegue. Tailwind va vendorizado en
 // static/tailwind.js: sin paso de build y sin depender de un CDN durante la demo.
 
@@ -64,7 +64,7 @@ async function analizar(fichero) {
   const bytes = await fichero.arrayBuffer();
   if (id !== analisisActual) return;
   const peticion = JSON.stringify({ audio: aBase64(bytes) });
-  const deteccion = fetch("detect", {
+  const deteccion = fetch("detect/details", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: peticion,

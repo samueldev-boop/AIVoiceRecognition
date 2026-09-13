@@ -1,11 +1,15 @@
 """Contrato del endpoint. Los campos obligatorios los fija el reto; el resto es diagnostico."""
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class DetectRequest(BaseModel):
     # WAV estereo 8 kHz en base64. ch0 = llamante, ch1 = agente.
-    audio: str = Field(..., description="WAV estereo 8 kHz codificado en base64")
+    audio: str = Field(
+        ...,
+        validation_alias=AliasChoices("audio_base64", "audio"),
+        description="WAV estereo 8 kHz codificado en base64",
+    )
 
 
 class DetectResponse(BaseModel):

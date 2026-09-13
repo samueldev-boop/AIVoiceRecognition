@@ -1,14 +1,101 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>AIVoiceRecognition</title>
+<title>Detección de llamante sintético</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  body { font: 14px/1.6 system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem; }
-  code { background: #f4f4f5; padding: .1rem .3rem; border-radius: .2rem; }
+<script src="tailwind.js"></script>
+<style type="text/tailwindcss">
+  /* Sin esquinas redondeadas y sin degradados en toda la interfaz, a proposito.
+     Grotesca neutra: menos detalle que las humanistas del sistema, igual de formal. */
+  @theme {
+    --radius-DEFAULT: 0px;
+    --font-sans: "Helvetica Neue", Helvetica, "Liberation Sans", Arial, sans-serif;
+  }
 </style>
-<h1>AIVoiceRecognition</h1>
-<p>El servicio esta en pie. La interfaz se construye en el issue #13.</p>
-<ul>
-  <li><a href="/health">/health</a> — estado del servicio</li>
-  <li><a href="/docs">/docs</a> — contrato de <code>POST /detect</code></li>
-</ul>
+
+<body class="bg-zinc-100 font-sans text-zinc-900 antialiased">
+
+<header class="border-b border-zinc-300 bg-white">
+  <div class="mx-auto flex max-w-4xl items-baseline justify-between px-6 py-4">
+    <span class="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+      Detección de llamante sintético
+    </span>
+  </div>
+</header>
+
+<main class="mx-auto max-w-4xl px-6 py-10">
+
+  <div id="soltar" tabindex="0" role="button" aria-label="Elegir una grabación"
+       class="cursor-pointer border border-dashed border-zinc-400 bg-white px-6 py-8
+              text-center transition-colors hover:border-zinc-900 focus:border-zinc-900
+              focus:outline-none">
+    <p class="text-[15px] font-medium">Arrastra un WAV o haz clic</p>
+    <p class="mt-1 font-mono text-xs text-zinc-500">
+      estéreo · 8 kHz · ch0 llamante · ch1 agente
+    </p>
+    <input type="file" id="archivo" accept=".wav,audio/wav,audio/x-wav" class="hidden">
+  </div>
+
+  <p id="estado" class="mt-4 min-h-5 text-sm text-zinc-600"></p>
+
+  <section id="resultado" hidden class="mt-6 space-y-4">
+
+    <div class="flex border border-zinc-300 bg-white">
+      <div id="acento" class="w-1 shrink-0 bg-zinc-400"></div>
+      <div class="flex-1 px-6 py-5">
+        <div class="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+          <span id="etiqueta" class="text-2xl font-semibold tracking-tight"></span>
+          <span class="font-mono text-sm text-zinc-500">
+            P(sintético) <span id="probabilidad" class="text-zinc-900"></span>
+          </span>
+        </div>
+        <dl class="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
+          <div>
+            <dt class="text-[11px] uppercase tracking-wider text-zinc-500">Confianza</dt>
+            <dd id="confianza" class="mt-0.5 font-mono text-[15px]"></dd>
+          </div>
+          <div>
+            <dt class="text-[11px] uppercase tracking-wider text-zinc-500">Audio usado</dt>
+            <dd id="segundos" class="mt-0.5 font-mono text-[15px]"></dd>
+          </div>
+          <div>
+            <dt class="text-[11px] uppercase tracking-wider text-zinc-500">Etapa</dt>
+            <dd id="etapa" class="mt-0.5 text-[15px]"></dd>
+          </div>
+          <div>
+            <dt class="text-[11px] uppercase tracking-wider text-zinc-500">Cómputo</dt>
+            <dd id="ms" class="mt-0.5 font-mono text-[15px]"></dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <p id="aviso" hidden
+       class="border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800"></p>
+
+    <div class="grid gap-4 sm:grid-cols-2">
+      <section class="border border-zinc-300 bg-white px-6 py-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Capas</h2>
+        <div id="capas" class="mt-4 space-y-1.5"></div>
+      </section>
+
+      <section class="border border-zinc-300 bg-white px-6 py-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          Presupuestos
+        </h2>
+        <div id="presupuestos" class="mt-4 space-y-1.5"></div>
+      </section>
+    </div>
+
+    <section class="border border-zinc-300 bg-white px-6 py-5">
+      <h2 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Turnos</h2>
+      <canvas id="onda" width="1200" height="160" class="mt-4 block w-full"></canvas>
+      <div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-mono text-xs text-zinc-500">
+        <span><span class="mr-1.5 inline-block h-2 w-2 bg-blue-700 align-middle"></span>llamante</span>
+        <span><span class="mr-1.5 inline-block h-2 w-2 bg-zinc-400 align-middle"></span>agente</span>
+        <span><span class="mr-1.5 inline-block h-2 w-2 bg-blue-200 align-middle"></span>audio usado</span>
+      </div>
+    </section>
+  </section>
+</main>
+
+<script src="app.js"></script>

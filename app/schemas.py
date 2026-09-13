@@ -20,6 +20,8 @@ class DetectResponse(BaseModel):
     disagreement: bool | None = None
     audio_used_s: float | None = None
     ms: float | None = None
+    # Turnos del VAD, para que la interfaz pueda dibujar sobre que decidio el modelo.
+    turns: list[dict] | None = None
 
 
 class HealthResponse(BaseModel):

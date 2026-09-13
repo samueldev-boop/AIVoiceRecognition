@@ -1,9 +1,10 @@
-"""Servicio HTTP: POST /detect y el frontend estatico.
+"""Servicio HTTP: POST /detect, POST /transcribe y el frontend estatico.
 
 Un solo proceso sirve la API y la interfaz: un despliegue, sin CORS, sin build.
 """
 
 import asyncio
+import base64
 import hashlib
 import logging
 import os
@@ -15,9 +16,15 @@ import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
-from app import __version__, audio, cascade, config, model, vad
+from app import __version__, audio, cascade, config, model, transcripcion, vad
 from app.audit import log_detection_event, motivos_de_incertidumbre
-from app.schemas import DetectRequest, DetectResponse, HealthResponse
+from app.schemas import (
+    DetectRequest,
+    DetectResponse,
+    HealthResponse,
+    TranscribeRequest,
+    TranscribeResponse,
+)
 
 logging.basicConfig(
     level=os.getenv("LOG_LEVEL", "INFO"),
@@ -156,6 +163,43 @@ async def detect(req: DetectRequest) -> DetectResponse:
             ) from None
 
     return DetectResponse(**resultado)
+
+
+@app.post("/transcribe", response_model=TranscribeResponse)
+async def transcribe(req: TranscribeRequest) -> TranscribeResponse:
+    """Transcripcion por canal para la interfaz. Va aparte: /detect no la usa ni la espera."""
+    t0 = time.perf_counter()
+    if not config.ELEVENLABS_API_KEY:
+        raise HTTPException(status_code=503, detail="transcripcion no configurada")
+
+    # Las mismas reglas de formato que /detect: lo que el detector rechaza no se transcribe.
+    try:
+        x, sr = await asyncio.to_thread(audio.decodificar, req.audio)
+        duracion = audio.validar(x, sr)
+    except audio.AudioInvalido as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    wav = base64.b64decode(req.audio)
+    if not transcripcion.es_wav(wav):
+        raise HTTPException(status_code=422, detail="solo se transcriben archivos WAV")
+    if duracion > config.TRANSCRIPCION_MAX_S:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"llamada de {duracion:.0f} s: se transcriben hasta "
+                f"{config.TRANSCRIPCION_MAX_S:.0f} s"
+            ),
+        )
+
+    try:
+        resultado = await transcripcion.transcribir(wav)
+    except transcripcion.TranscripcionFallida as e:
+        log.warning("transcribe fallo: %s", e)
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    ms = (time.perf_counter() - t0) * 1000
+    log.info("transcribe clip=%.1fs segmentos=%d %.0fms", duracion, len(resultado["segments"]), ms)
+    return TranscribeResponse(**resultado, ms=ms)
 
 
 # El frontend (#13) se sirve desde el mismo proceso. Se monta al final para que no

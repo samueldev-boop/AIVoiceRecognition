@@ -32,6 +32,23 @@ class DetectResponse(BaseModel):
     turns: list[dict] | None = None
 
 
+# /transcribe: solo para la interfaz, fuera del contrato del reto.
+class TranscribeRequest(BaseModel):
+    audio: str = Field(..., description="El mismo WAV que recibe /detect, en base64")
+
+
+class TranscriptSegment(BaseModel):
+    channel: int
+    start: float
+    end: float
+    text: str
+
+
+class TranscribeResponse(BaseModel):
+    segments: list[TranscriptSegment]
+    ms: float | None = None
+
+
 class HealthResponse(BaseModel):
     # pydantic reserva el prefijo "model_"; aqui lo usamos a proposito en la respuesta.
     model_config = ConfigDict(protected_namespaces=())

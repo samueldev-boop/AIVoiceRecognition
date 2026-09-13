@@ -4,6 +4,11 @@ Compara la fusion logistica elegida en #11 con LightGBM. Ambos usan las mismas l
 variantes de entrenamiento, cinco folds agrupados y escenarios de estres de #11.
 No se consulta `val` para elegir modelo ni umbral.
 
+TabPFN, el tercer candidato del issue, queda descartado: su papel era servir de oraculo de
+precision en Colab, y el equipo ya no usa Colab para ninguna herramienta. En este servicio
+tampoco tiene cabida, porque arrastra torch y una licencia propia, contra la decision de un
+servicio ligero.
+
 LightGBM recibe solo conducta, prosodia y razones entre canales. Usa 7 hojas, profundidad
 3, un minimo de 20 filas por hoja, 70% de columnas, 80% de filas y regularizacion L1/L2.
 No incorpora grupos de ganancia, codec ni silencio. Ambos candidatos tienen calibracion

@@ -97,6 +97,24 @@
         <span><span class="mr-1.5 inline-block h-2 w-2 bg-blue-200 align-middle"></span>audio usado</span>
       </div>
     </section>
+
+    <section id="transcripcion" hidden class="border border-zinc-300 bg-white px-6 py-5">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h2 class="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+          Transcripción
+        </h2>
+        <span class="font-mono text-xs text-zinc-500">ElevenLabs · Speech to Text</span>
+      </div>
+      <p id="transcripcion-estado" class="mt-4 text-sm text-zinc-600"></p>
+      <div id="conversacion" hidden class="mt-4 max-h-[32rem] overflow-y-auto">
+        <div class="sticky top-0 grid grid-cols-2 gap-x-6 border-b border-zinc-200 bg-white pb-2
+                    font-mono text-xs text-zinc-500 max-sm:hidden">
+          <span><span class="mr-1.5 inline-block h-2 w-2 bg-blue-700 align-middle"></span>llamante · canal 0</span>
+          <span><span class="mr-1.5 inline-block h-2 w-2 bg-zinc-400 align-middle"></span>agente · canal 1</span>
+        </div>
+        <ol id="dialogo" class="mt-3 space-y-2"></ol>
+      </div>
+    </section>
   </section>
 </main>
 

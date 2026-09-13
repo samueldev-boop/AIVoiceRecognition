@@ -1,8 +1,8 @@
 "use strict";
 
-// Interfaz sobre POST /detect. La sirve el mismo FastAPI que el endpoint, asi que no hay
-// CORS ni un segundo despliegue. Tailwind va vendorizado en static/tailwind.js: sin paso de
-// build y sin depender de un CDN durante la demo.
+// Interfaz sobre POST /detect y, para los WAV, POST /transcribe. La sirve el mismo FastAPI
+// que el endpoint, asi que no hay CORS ni un segundo despliegue. Tailwind va vendorizado en
+// static/tailwind.js: sin paso de build y sin depender de un CDN durante la demo.
 
 // Orden a proposito: primero las capas robustas, despues las que describen el equipo.
 const CAPAS = ["conducta", "razon_canal", "prosodia", "codec_bw", "silencio", "ganancia"];
@@ -14,10 +14,17 @@ const NOMBRE_ETAPA = {
   full: "llamada completa",
 };
 
+const NOMBRE_CANAL = ["llamante", "agente"];
+
 const $ = (id) => document.getElementById(id);
 const soltar = $("soltar");
 const archivo = $("archivo");
 const estado = $("estado");
+
+// Cada archivo abre un analisis nuevo: las respuestas de uno anterior ya no se pintan.
+let analisisActual = 0;
+// Se apaga para el resto de la sesion si el servidor no tiene clave de ElevenLabs.
+let transcripcionDisponible = true;
 
 soltar.addEventListener("click", () => archivo.click());
 soltar.addEventListener("keydown", (e) => {
@@ -50,22 +57,34 @@ function mensaje(texto, esError) {
 }
 
 async function analizar(fichero) {
+  const id = ++analisisActual;
   $("resultado").hidden = true;
   mensaje(`Analizando ${fichero.name}…`, false);
 
   const bytes = await fichero.arrayBuffer();
+  if (id !== analisisActual) return;
+  const peticion = JSON.stringify({ audio: aBase64(bytes) });
+  const deteccion = fetch("detect", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: peticion,
+  });
+
+  // La transcripcion va en paralelo y por su cuenta: el veredicto no la espera.
+  const conTranscripcion = transcripcionDisponible && esWav(fichero, bytes);
+  $("transcripcion").hidden = !conTranscripcion;
+  if (conTranscripcion) transcribir(peticion, id);
+
   let respuesta;
   try {
-    respuesta = await fetch("detect", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ audio: aBase64(bytes) }),
-    });
+    respuesta = await deteccion;
   } catch (e) {
+    if (id !== analisisActual) return;
     return mensaje(`No se pudo contactar con el servicio: ${e.message}`, true);
   }
 
   const cuerpo = await respuesta.json().catch(() => null);
+  if (id !== analisisActual) return;
   if (!respuesta.ok) {
     return mensaje(`Grabación rechazada: ${cuerpo?.detail ?? `HTTP ${respuesta.status}`}`, true);
   }
@@ -86,6 +105,92 @@ function aBase64(buffer) {
     texto += String.fromCharCode.apply(null, bytes.subarray(i, i + trozo));
   }
   return btoa(texto);
+}
+
+// Solo se transcriben los WAV: extension .wav y cabecera RIFF/WAVE.
+function esWav(fichero, buffer) {
+  if (!/\.wav$/i.test(fichero.name) || buffer.byteLength < 12) return false;
+  const cabecera = String.fromCharCode(...new Uint8Array(buffer, 0, 12));
+  return cabecera.startsWith("RIFF") && cabecera.endsWith("WAVE");
+}
+
+async function transcribir(peticion, id) {
+  estadoTranscripcion("Transcribiendo la llamada…");
+  let respuesta;
+  try {
+    respuesta = await fetch("transcribe", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: peticion,
+    });
+  } catch (e) {
+    if (id === analisisActual) estadoTranscripcion(`No se pudo transcribir: ${e.message}`);
+    return;
+  }
+
+  const cuerpo = await respuesta.json().catch(() => null);
+  if (id !== analisisActual) return;
+  // 503: el servidor no tiene clave. 422: grabacion rechazada, y el estado general ya lo dice.
+  if (respuesta.status === 503 || respuesta.status === 422) {
+    if (respuesta.status === 503) transcripcionDisponible = false;
+    $("transcripcion").hidden = true;
+    return;
+  }
+  if (!respuesta.ok) {
+    estadoTranscripcion(`No se pudo transcribir: ${cuerpo?.detail ?? `HTTP ${respuesta.status}`}`);
+    return;
+  }
+  pintarTranscripcion(cuerpo.segments);
+}
+
+function estadoTranscripcion(texto) {
+  $("transcripcion-estado").textContent = texto;
+  $("transcripcion-estado").hidden = false;
+  $("conversacion").hidden = true;
+}
+
+function pintarTranscripcion(segmentos) {
+  if (!segmentos.length) {
+    estadoTranscripcion("No se transcribió habla en ningún canal.");
+    return;
+  }
+  $("dialogo").replaceChildren(...segmentos.map(intervencion));
+  $("transcripcion-estado").hidden = true;
+  $("conversacion").hidden = false;
+  $("conversacion").scrollTop = 0;
+}
+
+// Llamante a la izquierda y agente a la derecha, con los colores de la leyenda de turnos. En
+// pantallas estrechas queda una sola columna y cada intervencion lleva el nombre del canal.
+function intervencion(s) {
+  const esLlamante = s.channel === 0;
+  const fila = document.createElement("li");
+  fila.className = "grid gap-x-6 sm:grid-cols-2";
+
+  const bloque = document.createElement("div");
+  bloque.className = esLlamante
+    ? "border-l-4 border-blue-700 bg-blue-50 px-3 py-2"
+    : "border-l-4 border-zinc-400 bg-zinc-100 px-3 py-2 sm:col-start-2";
+
+  const cabecera = document.createElement("p");
+  cabecera.className = "font-mono text-[11px] text-zinc-500";
+  const canal = document.createElement("span");
+  canal.className = "sm:hidden";
+  canal.textContent = ` · ${NOMBRE_CANAL[s.channel] ?? `canal ${s.channel}`}`;
+  cabecera.append(minutos(s.start), canal);
+
+  const texto = document.createElement("p");
+  texto.className = `mt-0.5 text-[14px] leading-snug ${esLlamante ? "text-zinc-900" : "text-zinc-700"}`;
+  texto.textContent = s.text;
+
+  bloque.append(cabecera, texto);
+  fila.append(bloque);
+  return fila;
+}
+
+function minutos(segundos) {
+  const s = Math.floor(segundos);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 function pintar(d) {

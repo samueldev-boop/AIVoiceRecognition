@@ -227,9 +227,12 @@ def run(args):
         ),
     }
     save_json(output / "selection_frozen.json", frozen)
-    print("Seleccion congelada. Ajustando artefacto solo con train.", flush=True)
+    extra = " + issue15" if issue15 else ""
+    print(f"Seleccion congelada. Ajustando artefacto con train{extra}.", flush=True)
     models = {
-        budget: fit_calibrated(samples[budget] + issue15_samples[budget], CANDIDATES[selected[budget]])
+        budget: fit_calibrated(
+            samples[budget] + issue15_samples[budget], CANDIDATES[selected[budget]]
+        )
         for budget in features.Presupuesto
     }
     bundle = {

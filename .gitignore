@@ -4,6 +4,8 @@ manifest.csv
 turns/
 DATASET.md
 *.zip
+# corpus generado del issue #15: audio y manifiesto se quedan en local
+generated_issue15_*/
 
 # --- salidas generadas por analysis/ (se regeneran ejecutando los scripts) ---
 analysis/*.csv

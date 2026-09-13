@@ -117,8 +117,12 @@ feature distinta a la usada en producción.
 6. **Entrenar por capas y calibrar.** Las capas se entrenan con `train`; la
    fusión y Platt usan predicciones fuera de muestra en folds internos.
 7. **Atacar el modelo antes de promoverlo.** Se simulan codecs, ganancia, ruido,
-   sala y cambios de conducta; una promoción se bloquea si introduce falsos
-   positivos o depende de grupos frágiles.
+   sala y cambios de conducta. El gate de `scripts/train_issue11.py` marca como
+   bloqueado un candidato que acuse humanos a 0.5 o dependa de grupos frágiles.
+   El candidato con RawBoost quedó bloqueado por 7 falsos positivos fuera de
+   muestra en `humano_limpio`, y aun así se promovió a la etapa `full` por
+   decisión explícita (#33): mejora el peor AUC de estrés de 0.8451 a 0.9726 y,
+   en `val`, pasa de 1 a 0 humanos acusados.
 8. **Servir y medir de extremo a extremo.** La API ejecuta una cascada de salida
    temprana y `scripts/eval_endpoint.py` mide precisión, calibración y latencia
    mediante HTTP, como lo haría el jurado.
@@ -151,7 +155,7 @@ daño de una clase de señales.
 | `ganancia` | RMS de habla y ruido, SNR, pico, *crest factor*, clipping, offset DC y fuga. | Nivel de grabación, relación señal/ruido y efectos de línea. | Frágil: cambia con teléfono, micrófono y volumen. |
 | `codec_bw` | Energía por bandas, centroide, ancho de banda, roll-off, planitud, ZCR y flujo espectral. | Huellas de codec, recorte telefónico y cadena de audio. | Frágil: el codec puede simularse o cambiar. |
 | `silencio` | Estadísticos del silencio, ceros, ruido de fondo y correlación cruzada. | Sala, ruido ambiental y actividad fuera de habla. | Frágil: un agente puede añadir ruido de sala. |
-| `prosodia` | F0, jitter, shimmer, HNR, fracción sonora, envolvente y modulación de 2–6 Hz. | Entonación, estabilidad vocal, ritmo silábico y microvariaciones de la voz. | Más robusta que una firma de codec, aunque no infalible. |
+| `prosodia` | F0, jitter, shimmer, HNR, fracción sonora, envolvente y modulación de 2–6 y 6–12 Hz. | Entonación, estabilidad vocal, ritmo silábico y microvariaciones de la voz. | Más robusta que una firma de codec, aunque no infalible. |
 | `conducta` | Número y duración de turnos, latencias de respuesta, solapes, pausas y su tendencia. | Cómo el llamante reacciona al operador e interactúa con el guion. | Robusta: es difícil modificarla sin cambiar el comportamiento del agente. |
 | `razon_canal` | Razones de energía/espectro entre llamante y operador, fuga y relación intercanal. | Diferencia entre la cadena del llamante y el canal del agente. | Robusta por construcción: compara el contexto de la misma llamada. |
 
@@ -215,8 +219,9 @@ capas disponibles o falta acuerdo entre ellas.
 - **RawBoost:** añade degradaciones de anti-spoofing (LnL + ISD) adaptadas a 8 kHz
   para evaluar y entrenar ante manipulaciones de audio adicionales.
 - **LightGBM:** se comparó como candidato sobre prosodia, conducta y razones de
-  canal; usa el mismo protocolo agrupado y de estrés. No sustituye de forma
-  automática al modelo logístico servido.
+  canal, con el mismo protocolo agrupado y de estrés (#12). Quedó descartado:
+  su AUC agrupada es 0.9833, pero cae a 0.8995 cuando se ataca el ritmo, frente
+  a 0.9726 de la regresión logística. TabPFN también se descartó.
 - **ASR con Faster-Whisper:** se emplea en análisis exploratorio para estudiar la
   confianza de transcripción. No es una dependencia decisoria del artefacto
   principal de features, por lo que una caída de ASR no bloquea `/detect`.
@@ -253,24 +258,32 @@ El servicio ofrece las siguientes rutas:
 | `/docs` | `GET` | Documentación OpenAPI interactiva generada por FastAPI. |
 | `/` | `GET` | Interfaz web estática para la demostración. |
 
-Contrato mínimo de `POST /detect`:
+Contrato mínimo de `POST /detect`. El campo del jurado es `audio_base64`; `audio`
+se mantiene como alias para la interfaz web y clientes anteriores. Los campos
+adicionales, como `call_id`, se ignoran:
 
 ```json
 {
-  "audio": "<WAV-estéreo-8-kHz-codificado-en-Base64>"
+  "audio_base64": "<WAV-estéreo-8-kHz-codificado-en-Base64>"
 }
 ```
 
-Respuesta típica:
+Respuesta típica (los dos primeros campos son el contrato; el resto es
+diagnóstico):
 
 ```json
 {
   "is_synthetic": true,
-  "confidence": 0.87,
-  "probability_synthetic": 0.91,
+  "confidence": 0.9458,
   "stage": "first_turn",
-  "budget_scores": {"first_turn": 0.91},
-  "disagreement": false
+  "probability_synthetic": 0.9458,
+  "budget_scores": {"first_turn": 0.9458},
+  "layer_scores": {"ganancia": 0.71, "codec_bw": 0.88, "silencio": 0.93,
+                   "prosodia": 0.64, "conducta": 0.97, "razon_canal": 0.81},
+  "disagreement": false,
+  "audio_used_s": 10.4,
+  "ms": 96.1,
+  "turns": [{"channel": 0, "start": 1.2, "end": 3.4}]
 }
 ```
 

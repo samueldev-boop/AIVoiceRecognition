@@ -109,6 +109,39 @@ def test_una_sola_capa_disponible_topa_la_confianza(sin_audio):
     assert r["confidence"] <= 0.9
 
 
+def test_una_llamada_larga_se_analiza_solo_hasta_el_tope(sin_audio, monkeypatch):
+    vistos = []
+    monkeypatch.setattr(cascade.vad, "turnos", lambda x, sr: vistos.append(len(x)) or [])
+    monkeypatch.setattr(cascade, "extract_sample",
+                        lambda x, sr, budget, **kw: vistos.append(len(x)) or {"budget": budget})
+    monkeypatch.setattr(config, "ANALISIS_MAX_S", 4.0)
+    modelo = ModeloDePega({"first_turn": 0.5, "20s": 0.5, "full": 0.5})
+
+    cascade.decidir(modelo, sin_audio, SR)  # 10 s de audio, tope de 4 s
+
+    assert modelo.llamadas == ["first_turn", "20s", "full"]
+    assert vistos and set(vistos) == {SR * 4}, "ninguna etapa debe ver audio tras el tope"
+
+
+def test_por_debajo_del_tope_se_analiza_la_llamada_entera(sin_audio, monkeypatch):
+    vistos = []
+    monkeypatch.setattr(cascade, "extract_sample",
+                        lambda x, sr, budget, **kw: vistos.append(len(x)) or {"budget": budget})
+    modelo = ModeloDePega({"first_turn": 0.5, "20s": 0.5, "full": 0.5})
+    cascade.decidir(modelo, sin_audio, SR)
+    assert set(vistos) == {len(sin_audio)}
+
+
+def test_se_aceptan_llamadas_de_mas_de_diez_minutos():
+    from app import audio
+
+    x = np.zeros((SR * 700, 2), dtype=np.int16)
+    x[::2, 0] = 100  # canales distintos y llamante con senal
+    assert audio.validar(x, SR) == pytest.approx(700.0)
+    with pytest.raises(audio.AudioInvalido, match="fuera del rango"):
+        audio.validar(np.zeros((int(SR * (config.MAX_DURATION_S + 1)), 2), dtype=np.int16), SR)
+
+
 def test_abstencion_no_acusa_y_lo_dice():
     r = cascade.abstencion(1234.0, "watchdog")
     assert r["is_synthetic"] is False, "el error caro es acusar a una persona"

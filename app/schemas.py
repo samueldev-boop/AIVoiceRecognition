@@ -1,34 +1,19 @@
 """Contrato del endpoint. Los campos obligatorios los fija el reto; el resto es diagnostico."""
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class DetectRequest(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    # Soporte dual: 'audio_base64' (contrato oficial del jurado) y 'audio' (contrato interno)
-    audio: str | None = Field(default=None, description="WAV estereo 8 kHz codificado en base64")
-    audio_base64: str | None = Field(
-        default=None, description="WAV estereo 8 kHz codificado en base64 (jurado)"
+    # WAV estereo 8 kHz en base64. ch0 = llamante, ch1 = agente.
+    audio: str = Field(
+        ...,
+        validation_alias=AliasChoices("audio_base64", "audio"),
+        description="WAV estereo 8 kHz codificado en base64",
     )
-    call_id: str | None = Field(default=None, min_length=1, max_length=128)
-
-    @property
-    def raw_audio(self) -> str:
-        return self.audio_base64 or self.audio or ""
-
-    @model_validator(mode="after")
-    def validate_audio_presence(self):
-        if self.audio and self.audio_base64 and self.audio != self.audio_base64:
-            raise ValueError("audio y audio_base64 deben coincidir")
-        target = self.audio_base64 or self.audio
-        if not target:
-            raise ValueError("Se requiere el campo 'audio_base64' o 'audio'")
-        if not self.audio:
-            self.audio = target
-        if not self.audio_base64:
-            self.audio_base64 = target
-        return self
+    # Identificador del evaluador, opcional. Solo alimenta la auditoria (como HMAC) y el
+    # contrato no fija su formato: se acepta texto o numero de cualquier longitud para que
+    # nunca convierta en 422 una llamada valida.
+    call_id: str | int | None = Field(default=None, description="ID de la llamada, opcional")
 
 
 class DetectResponse(BaseModel):

@@ -133,17 +133,40 @@ analysis/    exploración: sondas de features y banco de estrés
 docs/        informe de exploración
 ```
 
-`model.py` es la estructura con la firma ya fijada y lanza `NotImplementedError` apuntando a
-su issue. Mientras no haya modelo entrenado, `/detect` valida el clip y responde 503 con el
-motivo en lugar de adivinar.
+`model.py` carga el artefacto de #5 y permite puntuar audio con `puntuar_audio()` o muestras
+extraídas por `app/interventions.py`. La conexión del modelo con la cascada HTTP de
+`/detect` corresponde a #6; el endpoint informa 503 mientras esa cascada no esté integrada.
 
-`analysis/` queda como registro de la exploración inicial; `app/features.py` la sustituye y
-esos scripts se retirarán cuando caigan #5 y #11.
+`app/features.py` y `app/interventions.py` son la ruta compartida de extracción para
+entrenamiento e inferencia. `analysis/baseline.py` y `analysis/stress_test.py` invocan el
+entrenamiento sklearn; `analysis/ablation.py` consulta los resultados fuera de muestra.
 
-`analysis/` es exploratorio y se conserva como registro de lo medido: `turns_probe` y
-`audio_probe` extraen features y miden su poder discriminativo, `baseline` y `ablation`
-separan señal robusta de atajos, `stress_test` ataca el modelo con audio y tiempos
-modificados, y `transcribe` / `asr_confidence` cubren la capa de texto.
+Las sondas `turns_probe` / `audio_probe` conservan la exploración histórica;
+`transcribe` / `asr_confidence` cubren la capa de texto.
+
+## Entrenamiento y reporte del issue #5
+
+El modelo entrena cuatro regresiones por intervención del llamante. Agrega sus scores por
+llamada y añade dos capas de conducta y razones entre canales; una regresión de fusión y
+calibración Platt producen la probabilidad final. Hay modelos para primera intervención,
+20 segundos y llamada completa. La evaluación usa cinco folds agrupados por llamada, con
+fusión y calibración fuera de muestra dentro de cada fold.
+
+```bash
+pip install -r requirements-analysis.txt
+OPENBLAS_NUM_THREADS=1 python -m scripts.train_issue5
+python -m scripts.report_issue5
+python -m analysis.ablation
+```
+
+Se generan `model/model.joblib` y `analysis/issue5/`, con el informe HTML/PDF/Markdown,
+mapas de calor Pearson y Spearman, distribuciones, grafo de correlaciones, nulos, atípicos,
+ROC, calibración, matrices de confusión a 0.5/0.7 y métricas bajo estrés. El modelo se elige
+con `train` y estrés; la configuración se congela antes de informar `val`.
+
+Los artefactos derivados quedan locales y están ignorados por git. El dataset original
+se conserva intacto. Detalles del formato, comandos y verificación:
+[docs/issue5-modelo.md](docs/issue5-modelo.md).
 
 ## Puesta en marcha
 

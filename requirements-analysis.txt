@@ -1,0 +1,4 @@
+# Solo entrenamiento e informes locales; no se instala en el servicio.
+-r requirements-dev.txt
+matplotlib==3.11.2
+networkx==3.6.1

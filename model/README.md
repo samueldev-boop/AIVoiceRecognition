@@ -2,8 +2,23 @@
 
 ## model.joblib
 
-El modelo entrenado (ver #5). Todavia no existe: mientras falte, `/detect` valida el clip y
-responde 503 con el motivo.
+Se genera con `python -m scripts.train_issue5` usando el dataset local. El archivo está
+ignorado por git; se copia como artefacto local al preparar el servicio.
+
+Contiene versión del modelo y extractor, orden de features, grupos, versiones de Python
+y scikit-learn, configuración seleccionada y tres clasificadores calibrados (`first_turn`,
+`20s`, `full`). Cada clasificador conserva sus imputadores, recortes, escaladores,
+regresiones por capa, regresión de fusión y calibrador Platt. Su SHA-256 queda en
+`analysis/issue5/metrics.json`.
+
+`app.model.cargar()` comprueba versión y esquema. `Modelo.puntuar_audio(x, sr, presupuesto)`
+ejecuta el mismo VAD y extractor del entrenamiento y devuelve `probability_synthetic`,
+`is_synthetic`, `confidence`, scores y capas disponibles. `confidence` limita la confianza
+cuando las capas no concuerdan; los umbrales de clasificación se aplican sobre la
+probabilidad calibrada. El endpoint y su cascada se integran en #6.
+
+El análisis completo se regenera con `python -m scripts.report_issue5`:
+`analysis/issue5/reporte.html`, `reporte.pdf` y `reporte.md`.
 
 ## Sobre el VAD
 

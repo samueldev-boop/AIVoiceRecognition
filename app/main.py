@@ -82,7 +82,7 @@ def detect(req: DetectRequest) -> DetectResponse:
         status_code=503,
         detail=(
             f"clip valido ({duracion:.1f}s) pero la cascada no esta implementada todavia: "
-            f"ver #3, #4, #5 y #6. ms={1000 * (time.perf_counter() - t0):.1f}"
+            f"ver #6. ms={1000 * (time.perf_counter() - t0):.1f}"
         ),
     )
 

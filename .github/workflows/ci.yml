@@ -15,7 +15,7 @@ jobs:
           python-version: "3.14"
           cache: pip
       - run: pip install -r requirements-dev.txt
-      - run: ruff check app tests scripts
+      - run: ruff check app tests scripts analysis
       - run: pytest -q
 
   imagen:

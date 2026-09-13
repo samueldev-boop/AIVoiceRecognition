@@ -26,6 +26,11 @@ portion==2.6.2
 # --- ASR (ver #6): CTranslate2, no arrastra torch ---
 faster-whisper==1.2.1
 
+# --- transcripcion en la interfaz: cliente HTTP hacia ElevenLabs ---
+# Ya llegaba como dependencia de faster-whisper (huggingface_hub); se declara porque ahora lo
+# importa el servicio. No cambia el tamano de la imagen.
+httpx==0.28.1
+
 # --- modelo (ver #5) ---
 scikit-learn==1.9.1
 joblib==1.6.0

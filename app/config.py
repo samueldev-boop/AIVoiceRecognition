@@ -13,6 +13,15 @@ DETECT_TIMEOUT_S = float(os.getenv("DETECT_TIMEOUT_S", "25"))
 
 STATIC_DIR = os.getenv("STATIC_DIR", "static")
 
+# Transcripcion de la llamada en la interfaz (ElevenLabs Speech to Text). No interviene en
+# /detect: sin clave, /transcribe responde 503 y la pagina muestra solo el veredicto.
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+ELEVENLABS_STT_MODEL = os.getenv("ELEVENLABS_STT_MODEL", "scribe_v2")
+ELEVENLABS_TIMEOUT_S = float(os.getenv("ELEVENLABS_TIMEOUT_S", "60"))
+# El endpoint es publico y ElevenLabs factura cada segundo de cada canal: se acota lo que se
+# manda. El dataset no pasa de 273 s.
+TRANSCRIPCION_MAX_S = float(os.getenv("TRANSCRIPCION_MAX_S", "600"))
+
 # Si es true, /detect responde 503 cuando no puede conservar el evento de auditoria. Por
 # defecto no: un disco lleno o un volumen sin permisos no debe tumbar la deteccion.
 AUDIT_REQUIRED = os.getenv("AUDIT_REQUIRED", "false").strip().lower() in ("1", "true", "yes")

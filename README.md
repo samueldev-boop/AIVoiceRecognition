@@ -143,7 +143,8 @@ app/         servicio
   config.py    variables de entorno
 model/       artefactos entrenados
 scripts/     entrenamiento y evaluación (no se importan desde app/)
-static/      frontend
+static/      interfaz: sube un WAV y ve el veredicto, los scores por capa
+             y los turnos del VAD sobre la forma de onda
 tests/       criterio de aceptación automatizado
 deploy/      configuración de la instancia (cloud-init) y guía de despliegue
 analysis/    exploración: sondas de features y banco de estrés
@@ -206,6 +207,24 @@ curl -s localhost/health
 ```
 
 Configuración de la instancia y despliegue: **[deploy/README.md](deploy/README.md)**.
+
+## Evaluar el endpoint
+
+Mide el servicio entero por HTTP, como lo verá el jurado. Complementa la validación agrupada
+y el banco de estrés, no los sustituye: `val` está saturado. Con el servicio levantado y el
+dataset en la raíz:
+
+```bash
+python scripts/eval_endpoint.py --split val --url http://localhost:8000
+```
+
+Manda las llamadas del split a `/detect` de una en una e imprime, en una pantalla: acierto,
+FPR (humanos acusados) y FNR; AUC, Brier y ECE; latencia p50/p95; qué etapa decidió cada
+llamada, y el coste en FP y FN de los umbrales 0.3, 0.5, 0.7 y 0.9. La calibración se mide
+dos veces: con lo que ve el jurado (`is_synthetic` + `confidence`) y con
+`probability_synthetic`. Cada respuesta queda con su latencia en
+`analysis/eval_<split>_<host>.csv`, ignorado por git. Contra el despliegue es el mismo
+comando con su URL. Si alguna petición falla, el script sale con código 1.
 
 ## Contribuir
 

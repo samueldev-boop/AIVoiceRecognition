@@ -16,6 +16,9 @@ jobs:
           cache: pip
       - run: pip install -r requirements-dev.txt
       - run: ruff check app tests scripts analysis
+      # La interfaz no tiene paso de build, asi que su unica red de seguridad de
+      # sintaxis es esta: node viene ya en los runners.
+      - run: node --check static/app.js
       - run: pytest -q
 
   imagen:

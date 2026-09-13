@@ -79,21 +79,38 @@ intervención del llamante** (~1–3 s de habla, normalmente dentro de los prime
 llamada). Con la primera *palabra* literal no alcanza: no se puede estimar piso de ruido ni
 espectro con 0.3 s.
 
-| Etapa | Qué usa | Audio | Coste | Rendimiento medido |
+| Etapa | Qué usa | Audio | CV por hablante | Peor caso de estrés |
 | --- | --- | --- | --- | --- |
-| 0 | Formato, 2 canales, ≥1 s de habla en ch0 | — | <10 ms | rechaza o degrada |
-| 1 | 139 features sobre la 1ª intervención del llamante | 10.5 s de media | ~0.1 s | CV-AUC 0.984 · val AUC 0.998 |
-| 1b | Las mismas sobre los primeros 20 s | 20 s | ~0.1 s | CV-AUC 0.997 · val AUC 0.999 |
-| 2 | ASR sobre ch0 y ch1 recortados | — | 5–10 s | pendiente (#9) |
-| 3 | Todo, con la llamada completa | 148 s de media | ~0.9 s | CV-AUC 0.999 · **val AUC 1.000, 0 FP** |
+| 0 | Formato, 2 canales, ≥1 s de habla en ch0 | — | rechaza o degrada | — |
+| 1 | 1ª intervención del llamante | 10.5 s de media | **0.9768** | **0.9483** |
+| 2 | Primeros 20 s | 20 s | 0.9739 | 0.9287 |
+| 3 | Llamada completa | 148 s de media | 0.9682 | 0.8582 |
 
-Medido sobre las 353 llamadas, con las fronteras de nuestro propio VAD y no con las del
-dataset. **La primera intervención del llamante ya decide casi todo**: eso es lo que hace
-realista responder sin esperar la llamada completa.
+Se sale en la primera etapa cuya probabilidad calibrada queda fuera de la banda
+**[0.10, 0.90]**; si se escala, se fusiona por media de logits y, cuando dos presupuestos se
+contradicen, la confianza se topa en 0.65 en lugar de promediarse sin más.
+
+**El orden no es casual: la primera intervención es el presupuesto más fuerte y el más
+robusto al ataque.** Agrupando la validación por hablante, mirar más audio empeora la
+generalización, porque el modelo se apoya en rasgos de la persona y de su línea que no
+transfieren a hablantes nuevos. El juicio final usa voces que no están en ningún split.
+
+Lo que la cascada compra es **latencia, no precisión**: sobre las predicciones fuera de
+muestra de train, la cascada comete los mismos 24 errores que fusionar los tres presupuestos
+siempre, pero contesta el 79 % de las llamadas con una etapa.
+
+Medido contra el endpoint real, las 71 llamadas de val:
+
+| | |
+| --- | --- |
+| Latencia | p50 **0.27 s** · p95 **2.47 s** · máx 3.40 s |
+| Por encima de 12 s / 30 s | 0 / 0 |
+| Etapa que decidió | 59 en la 1ª (0.27 s) · 4 en los 20 s · 8 con la llamada completa (2.45 s) |
+| Resultado | AUC 0.9921 · acierto 97.2 % · 1 FP · 1 FN · Brier 0.0237 |
 
 Y el subconjunto que sobrevive a un cambio de equipo —conducta, prosodia y razones entre
-canales, 89 de las 139 features— llega solo a **val AUC 1.000 con 0 falsos positivos**
-(CV-AUC 0.998). La familia de ganancia, la más frágil, se queda en CV-AUC 0.789.
+canales— es el que domina en la etapa 1: conducta 0.9472 y razones 0.9270, frente al silencio
+de la sala, que solo manda con la llamada completa (0.9862). El atajo, visto de frente.
 
 Watchdog de 25 s: si una etapa se agota, se responde con lo que ya votó. `confidence` refleja
 **qué etapas alcanzaron a votar**; una sola capa nunca devuelve más de 0.9.

@@ -14,7 +14,10 @@ class DetectResponse(BaseModel):
 
     # Diagnostico: no lo exige el contrato, pero alimenta la demo y el script de evaluacion.
     stage: str | None = None
+    probability_synthetic: float | None = None
+    budget_scores: dict[str, float] | None = None
     layer_scores: dict[str, float] | None = None
+    disagreement: bool | None = None
     audio_used_s: float | None = None
     ms: float | None = None
 

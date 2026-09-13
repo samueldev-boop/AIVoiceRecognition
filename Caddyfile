@@ -16,3 +16,7 @@
 
 	reverse_proxy api:8000
 }
+
+www.{$DOMINIO} {
+    redir https://{$DOMINIO}{uri} permanent
+}

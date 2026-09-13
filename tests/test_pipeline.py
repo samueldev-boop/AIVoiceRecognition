@@ -164,6 +164,34 @@ def test_repository_replay_cannot_reset_curated_document():
         repository.save(changed)
 
 
+def test_existing_index_with_other_options_does_not_stop_the_worker():
+    from pymongo.errors import OperationFailure
+
+    class LegacyIndexes:
+        def __init__(self):
+            self.created = []
+
+        def create_index(self, keys, **options):
+            if keys == [("call_id", 1)]:
+                raise OperationFailure("An existing index has the same name", code=86)
+            self.created.append(keys)
+
+    collection = LegacyIndexes()
+    MongoAuditRepository(collection).ensure_indexes()
+    assert [("input_sha256", 1)] in collection.created, "los indices siguientes se crean"
+
+
+def test_other_index_errors_still_fail():
+    from pymongo.errors import OperationFailure
+
+    class Unauthorized:
+        def create_index(self, keys, **options):
+            raise OperationFailure("not authorized", code=13)
+
+    with pytest.raises(OperationFailure):
+        MongoAuditRepository(Unauthorized()).ensure_indexes()
+
+
 def test_failed_client_is_closed_and_next_call_retries(monkeypatch):
     import src.db as db
 

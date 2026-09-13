@@ -99,6 +99,14 @@ La coleccion puede contener documentos del auditor anterior. No se modifican: el
 de `event_id` es parcial (solo documentos con `event_id`) y la exportacion de entrenamiento
 lee unicamente `schema_version: 1`.
 
+Si la coleccion ya tiene un indice `call_id_1` **unico** (el auditor anterior lo creaba), el
+worker lo respeta y registra `event=index_kept` en lugar de abortar. Sin `AUDIT_ID_KEY` no
+hay problema: cada evento usa su propio `event_id` como `call_id`. Con `AUDIT_ID_KEY`, dos
+peticiones con el mismo `call_id` producen el mismo HMAC y la segunda queda en
+`data/processed/rejected/` por conflicto. Para correlacionar llamadas repetidas hay que
+retirar antes ese indice unico (`db.calls.dropIndex("call_id_1")`); el worker lo recrea sin
+`unique`.
+
 ```bash
 python -m src.worker                 # bucle de polling
 python -m src.worker --once          # un lote; salida no cero si falla infraestructura

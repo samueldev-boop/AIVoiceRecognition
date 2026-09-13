@@ -2,13 +2,19 @@
 
 import hashlib
 import json
+import logging
 from datetime import UTC, datetime
 from typing import Protocol
 
 from pymongo import ASCENDING, DESCENDING
-from pymongo.errors import DuplicateKeyError
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from src.schemas import CallAuditRecord
+
+logger = logging.getLogger("altur.repositories")
+
+# IndexOptionsConflict e IndexKeySpecsConflict: el indice ya existe con otras opciones.
+INDEX_CONFLICTS = {85, 86}
 
 
 class EventConflict(ValueError):
@@ -28,16 +34,29 @@ class MongoAuditRepository:
     def ensure_indexes(self) -> None:
         # Parcial: la coleccion puede tener documentos del auditor anterior sin event_id, y
         # un indice unico total los trataria a todos como event_id null repetido.
-        self.collection.create_index(
+        self._create_index(
             [("event_id", ASCENDING)],
             unique=True,
             partialFilterExpression={"event_id": {"$exists": True}},
         )
-        self.collection.create_index([("call_id", ASCENDING)])
-        self.collection.create_index(
-            [("status_for_training", ASCENDING), ("timestamp", DESCENDING)]
-        )
-        self.collection.create_index([("input_sha256", ASCENDING)])
+        self._create_index([("call_id", ASCENDING)])
+        self._create_index([("status_for_training", ASCENDING), ("timestamp", DESCENDING)])
+        self._create_index([("input_sha256", ASCENDING)])
+
+    def _create_index(self, keys, **options) -> None:
+        """Respeta un indice que ya existe con otras opciones en vez de abortar el worker.
+
+        La coleccion del auditor anterior tiene call_id_1 unico. Pedir el mismo indice sin
+        unique falla con IndexOptionsConflict (85) o IndexKeySpecsConflict (86), y eso
+        dejaba al worker sin guardar nada. La idempotencia no depende de estos indices:
+        _id es event_id.
+        """
+        try:
+            self.collection.create_index(keys, **options)
+        except OperationFailure as exc:
+            if exc.code not in INDEX_CONFLICTS:
+                raise
+            logger.warning("event=index_kept keys=%s code=%s", keys, exc.code)
 
     def save(self, record: CallAuditRecord) -> bool:
         record = CallAuditRecord.model_validate(record.model_dump())

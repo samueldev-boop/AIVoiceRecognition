@@ -143,7 +143,8 @@ app/         servicio
   config.py    variables de entorno
 model/       artefactos entrenados
 scripts/     entrenamiento y evaluación (no se importan desde app/)
-static/      frontend
+static/      interfaz: sube un WAV y ve el veredicto, los scores por capa
+             y los turnos del VAD sobre la forma de onda
 tests/       criterio de aceptación automatizado
 deploy/      configuración de la instancia (cloud-init) y guía de despliegue
 analysis/    exploración: sondas de features y banco de estrés

@@ -101,6 +101,7 @@ def decidir(modelo, x: np.ndarray, sr: int, *, limite_s: float | None = None) ->
         confianza = min(confianza, TOPE_DESACUERDO)
 
     return {
+        "turns": turnos,
         "is_synthetic": bool(probabilidad >= 0.5),
         "confidence": float(confianza),
         "probability_synthetic": float(probabilidad),
@@ -120,6 +121,7 @@ def abstencion(ms: float, motivo: str) -> dict:
     caro. La confianza 0.5 lo dice explicitamente en lugar de disfrazarlo.
     """
     return {
+        "turns": [],
         "is_synthetic": False,
         "confidence": 0.5,
         "probability_synthetic": 0.5,

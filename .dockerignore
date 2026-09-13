@@ -12,6 +12,8 @@ audio/
 turns/
 manifest.csv
 DATASET.md
+data/
+.venv-audit/
 *.zip
 analysis/
 docs/

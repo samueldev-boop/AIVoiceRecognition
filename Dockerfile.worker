@@ -1,0 +1,12 @@
+FROM python:3.14-slim
+
+WORKDIR /srv
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+COPY requirements-worker.txt .
+RUN pip install --no-cache-dir -r requirements-worker.txt
+COPY src/ src/
+RUN useradd --create-home --uid 10001 worker \
+    && mkdir -p /srv/data/raw /srv/data/processed \
+    && chown -R worker:worker /srv/data
+USER worker
+CMD ["python", "-m", "src.worker"]

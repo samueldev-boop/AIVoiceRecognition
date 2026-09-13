@@ -15,6 +15,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
+COPY requirements-worker.txt .
 # --no-compile ahorra ~120 MB de bytecode a cambio de ~0.4 s de arranque (medido).
 RUN pip install --no-cache-dir --no-compile -r requirements.txt
 
@@ -34,12 +35,13 @@ ENV PATH="/opt/venv/bin:$PATH" \
 WORKDIR /srv
 
 COPY app/ app/
+COPY src/ src/
 COPY static/ static/
 COPY model/ model/
 
 RUN useradd --create-home --uid 10001 servicio \
-    && mkdir -p /models \
-    && chown -R servicio:servicio /models /srv
+    && mkdir -p /models /srv/data \
+    && chown -R servicio:servicio /models /srv /srv/data
 USER servicio
 
 EXPOSE 8000

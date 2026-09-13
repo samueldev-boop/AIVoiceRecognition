@@ -68,7 +68,7 @@ traen sus librerías nativas (`libgomp` dentro de `ctranslate2`, `libsndfile` de
 `soundfile`)— y el `gcc` que necesita compilar `webrtcvad` en Python 3.14 se queda en el
 builder.
 
-No se usa base de datos. Si hace falta auditar predicciones, es una línea JSONL en disco.
+Las llamadas en las que el modelo no llega a una conclusión clara dejan una referencia (sin audio) que un worker sube a MongoDB Atlas: [docs/data-pipeline.md](docs/data-pipeline.md).
 
 ---
 
@@ -244,3 +244,7 @@ aceptación numérico.
 - **M2 · Precisión y robustez** — capa de texto a escala, augmentación contra atajos, selección de clasificador
 - **M3 · Demo** — frontend mínimo
 - **M4 · Extras condicionales** — sólo si aportan una ganancia medida
+
+## Referencias de llamadas inciertas
+
+Solo se guarda una referencia a cada llamada incierta (huella del audio, decisión y motivo), para usarla después en el ciclo de reentrenamiento y actualización continua. No se guarda audio ni se entrena nada automáticamente: [guía técnica](docs/data-pipeline.md).

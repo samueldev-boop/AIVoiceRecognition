@@ -3,6 +3,7 @@
 # Lo que necesite torch se entrena aparte (Colab) y se exporta a ONNX.
 
 # --- API ---
+-r requirements-worker.txt
 fastapi==0.141.1
 uvicorn[standard]==0.52.4
 pydantic==2.13.5

@@ -10,6 +10,10 @@ class DetectRequest(BaseModel):
         validation_alias=AliasChoices("audio_base64", "audio"),
         description="WAV estereo 8 kHz codificado en base64",
     )
+    # Identificador del evaluador, opcional. Solo alimenta la auditoria (como HMAC) y el
+    # contrato no fija su formato: se acepta texto o numero de cualquier longitud para que
+    # nunca convierta en 422 una llamada valida.
+    call_id: str | int | None = Field(default=None, description="ID de la llamada, opcional")
 
 
 class DetectResponse(BaseModel):

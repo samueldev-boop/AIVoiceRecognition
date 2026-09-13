@@ -59,6 +59,12 @@ def decidir(modelo, x: np.ndarray, sr: int, *, limite_s: float | None = None) ->
     t0 = time.perf_counter()
     limite = config.DETECT_TIMEOUT_S if limite_s is None else limite_s
 
+    # Una llamada larga se analiza solo hasta ANALISIS_MAX_S, para que el computo no crezca
+    # con la duracion. Por debajo del tope, que cubre todo el dataset, no cambia nada.
+    tope = int(config.ANALISIS_MAX_S * sr)
+    if len(x) > tope:
+        x = x[:tope]
+
     # Un solo paso de VAD sobre el audio completo, compartido por first_turn y full. El
     # presupuesto 20s recalcula el suyo a proposito, para no conocer fronteras futuras.
     turnos = vad.turnos(x, sr)

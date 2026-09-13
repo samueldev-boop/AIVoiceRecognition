@@ -9,9 +9,10 @@
 {$DOMINIO} {
 	encode zstd gzip
 
-	# Medido: una llamada de 170 s son 7 MB de base64. 25 MB deja margen de sobra.
+	# Una llamada estereo a 8 kHz son 32 KB/s, unos 43 KB/s en base64: la hora que admite
+	# MAX_DURATION_S ronda los 155 MB. 200 MB deja margen para el JSON y los campos extra.
 	request_body {
-		max_size 25MB
+		max_size 200MB
 	}
 
 	reverse_proxy api:8000
